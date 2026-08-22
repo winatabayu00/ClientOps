@@ -1,6 +1,6 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios'
 
-export type Envelope<T> = { success: boolean; data: T; message: string; meta?: { total: number } }
+export type Envelope<T> = { success: boolean; data: T; message: string; meta?: { page: number; limit: number; total: number; total_pages: number } }
 export type User = { id: string; name: string; email: string; roles: string[]; permissions: string[] }
 
 const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || '/api/v1', withCredentials: true })
@@ -28,6 +28,7 @@ api.interceptors.response.use(undefined, async (error: AxiosError) => {
 
 export const message = (error: unknown) => (axios.isAxiosError(error) ? (error.response?.data as { message?: string })?.message : null) || 'Request failed'
 export const get = <T>(url: string) => api.get<Envelope<T>>(url).then(r => r.data.data)
+export const getPage = <T>(url: string) => api.get<Envelope<T>>(url).then(r => r.data)
 export const post = <T>(url: string, data?: unknown) => api.post<Envelope<T>>(url, data).then(r => r.data.data)
 export const patch = <T>(url: string, data?: unknown) => api.patch<Envelope<T>>(url, data).then(r => r.data.data)
 export const auth = {
