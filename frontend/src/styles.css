@@ -7,13 +7,16 @@
 }
 
 body { @apply m-0 bg-paper font-sans text-ink; }
-main { @apply mx-auto max-w-5xl px-4 py-8 sm:px-8; }
+main { @apply mx-auto max-w-6xl px-4 py-8 sm:px-8; }
 h1 { @apply my-0 text-3xl font-semibold tracking-tight; }
 p { @apply leading-6; }
 .eyebrow { @apply text-sm font-bold uppercase tracking-[0.2em] text-signal; }
-header { @apply flex flex-wrap items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-8; }
-nav { @apply flex flex-wrap gap-3; } nav a { @apply capitalize text-slate-600; } nav a.active { @apply font-bold text-signal; }
-header span { @apply ml-auto text-sm; } button { @apply rounded bg-signal px-3 py-2 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60; }
+.app-header { @apply sticky top-0 z-10 flex items-center gap-4 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:px-8; }
+.brand { @apply shrink-0 text-lg font-black tracking-tight text-ink no-underline; }
+nav { @apply flex min-w-0 flex-1 gap-1 overflow-x-auto; } nav a { @apply shrink-0 rounded px-2 py-1.5 capitalize text-sm font-medium text-slate-600 no-underline; } nav a:hover, nav a:focus-visible { @apply bg-slate-100 text-ink outline-none; } nav a.active { @apply bg-emerald-50 font-bold text-signal; }
+.account { @apply flex shrink-0 items-center gap-3; }.account span { @apply hidden text-sm sm:inline; } button { @apply rounded bg-signal px-3 py-2 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60; }
 .login { @apply flex min-h-screen items-center justify-center; }.card { @apply grid w-full max-w-md gap-4 rounded-lg bg-white p-6 shadow-sm; }
 label { @apply grid gap-1 font-medium; } input, select { @apply rounded border border-slate-300 bg-white p-2 text-ink; }
 .title { @apply mb-6 flex flex-wrap items-center justify-between gap-4; }.records { @apply m-0 grid list-none gap-2 p-0; }.records li, dl { @apply rounded bg-white p-4 shadow-sm; }.records a { @apply grid no-underline text-ink; }small { @apply mt-1 text-slate-500; }dl { @apply grid gap-3; }dt { @apply text-sm font-bold capitalize; }dd { @apply m-0 break-words; }.create { @apply mt-4; }
+.dashboard { @apply grid gap-8; }.dashboard-heading { @apply max-w-2xl; }.dashboard-heading > p:last-child { @apply mb-0 text-slate-600; }.metric-grid { @apply grid gap-3 sm:grid-cols-2 lg:grid-cols-3; }.metric-card { @apply grid min-h-40 content-between rounded-lg border border-slate-200 bg-white p-5 text-ink no-underline shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal; }.metric-card > span { @apply text-sm font-semibold text-slate-600; }.metric-card > strong { @apply text-4xl font-semibold tracking-tight; }.metric-card small { @apply max-w-48; }
+@media (max-width: 640px) { .app-header { @apply flex-wrap gap-2; }.brand { @apply mr-auto; }.account { @apply order-2; }nav { @apply order-3 basis-full; } }
