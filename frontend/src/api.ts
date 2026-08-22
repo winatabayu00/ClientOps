@@ -29,6 +29,7 @@ api.interceptors.response.use(undefined, async (error: AxiosError) => {
 export const message = (error: unknown) => (axios.isAxiosError(error) ? (error.response?.data as { message?: string })?.message : null) || 'Request failed'
 export const get = <T>(url: string) => api.get<Envelope<T>>(url).then(r => r.data.data)
 export const post = <T>(url: string, data?: unknown) => api.post<Envelope<T>>(url, data).then(r => r.data.data)
+export const patch = <T>(url: string, data?: unknown) => api.patch<Envelope<T>>(url, data).then(r => r.data.data)
 export const auth = {
   me: () => get<User>('/auth/me'),
   login: (email: string, password: string) => post<User>('/auth/login', { email, password }),
