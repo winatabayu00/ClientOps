@@ -16,11 +16,21 @@ A bug fix or feature is not considered fully delivered only because it has been 
 
 ```text
 Planning: Complete
-Implementation: Not Started
-Current Milestone: M0 — Project Bootstrap
+Implementation: Bootstrap complete
+Current Milestone: M1 — Infrastructure & Database Foundation
 ```
 
 This README is a living document and will be updated as the implementation progresses.
+
+## Local Development
+
+```bash
+cp .env.example .env
+make up
+make migrate-up
+```
+
+API health: `http://localhost:8080/health`.
 
 Implementation starts from the [`Documentation and Delivery Map`](docs/README.md), which connects source-of-truth documents, delivery order, traceability, and Definition of Done gates.
 

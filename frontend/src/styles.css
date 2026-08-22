@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #172033;
+  --color-paper: #f5f7fb;
+  --color-signal: #207567;
+}
+
+body { @apply m-0 bg-paper font-sans text-ink; }
+main { @apply mx-auto flex min-h-screen max-w-3xl flex-col justify-center px-6; }
+h1 { @apply my-3 text-5xl font-semibold tracking-tight sm:text-7xl; }
+p { @apply text-lg leading-8; }
+.eyebrow { @apply text-sm font-bold uppercase tracking-[0.2em] text-signal; }
