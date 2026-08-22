@@ -1,0 +1,19 @@
+CREATE TABLE documentations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(), title VARCHAR(255) NOT NULL, summary TEXT NOT NULL, content TEXT NOT NULL,
+    status VARCHAR(30) NOT NULL DEFAULT 'DRAFT' CHECK (status IN ('DRAFT','IN_REVIEW','PUBLISHED','ARCHIVED')),
+    author_id UUID NOT NULL REFERENCES users(id), last_reviewed_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE TABLE releases (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(), version VARCHAR(100) NOT NULL UNIQUE, title VARCHAR(255) NOT NULL, summary TEXT NOT NULL,
+    status VARCHAR(30) NOT NULL DEFAULT 'DRAFT' CHECK (status IN ('DRAFT','READY','PUBLISHED','CANCELLED')), release_date TIMESTAMPTZ,
+    created_by UUID NOT NULL REFERENCES users(id), published_by UUID REFERENCES users(id), created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+ALTER TABLE issues ADD CONSTRAINT issues_release_id_fkey FOREIGN KEY (release_id) REFERENCES releases(id);
+CREATE TABLE release_documentations (release_id UUID NOT NULL REFERENCES releases(id) ON DELETE CASCADE, documentation_id UUID NOT NULL REFERENCES documentations(id), PRIMARY KEY(release_id, documentation_id));
+CREATE TABLE release_items (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), release_id UUID NOT NULL REFERENCES releases(id) ON DELETE CASCADE, type VARCHAR(30) NOT NULL CHECK(type IN ('FEATURE','BUG_FIX','IMPROVEMENT','SECURITY')), title VARCHAR(255) NOT NULL, description TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
+CREATE TABLE release_item_issues (release_item_id UUID NOT NULL REFERENCES release_items(id) ON DELETE CASCADE, issue_id UUID NOT NULL REFERENCES issues(id), PRIMARY KEY(release_item_id,issue_id));
+CREATE TABLE release_impacts (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), release_id UUID NOT NULL REFERENCES releases(id) ON DELETE CASCADE, client_id UUID NOT NULL REFERENCES clients(id), impact_type VARCHAR(30) NOT NULL CHECK(impact_type IN ('DIRECT','GENERAL','OPTIONAL')), requires_follow_up BOOLEAN NOT NULL DEFAULT FALSE, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), UNIQUE(release_id,client_id));
+CREATE TABLE operational_handoffs (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), release_id UUID NOT NULL REFERENCES releases(id), client_id UUID NOT NULL REFERENCES clients(id), ops_owner_id UUID NOT NULL REFERENCES users(id), status VARCHAR(30) NOT NULL DEFAULT 'PENDING' CHECK(status IN ('PENDING','ACKNOWLEDGED','FOLLOW_UP_REQUIRED','FOLLOWED_UP','COMPLETED')), requires_follow_up BOOLEAN NOT NULL DEFAULT FALSE, acknowledged_at TIMESTAMPTZ, acknowledged_by UUID REFERENCES users(id), completed_at TIMESTAMPTZ, completed_by UUID REFERENCES users(id), created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), UNIQUE(release_id,client_id));
+CREATE TABLE client_follow_ups (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), client_id UUID NOT NULL REFERENCES clients(id), handoff_id UUID REFERENCES operational_handoffs(id), issue_id UUID REFERENCES issues(id), owner_id UUID NOT NULL REFERENCES users(id), type VARCHAR(50) NOT NULL CHECK(type IN ('ISSUE_RESOLUTION','RELEASE_UPDATE','TRAINING','RELATIONSHIP_CHECK','OTHER')), reason TEXT NOT NULL, status VARCHAR(30) NOT NULL DEFAULT 'OPEN' CHECK(status IN ('OPEN','IN_PROGRESS','COMPLETED','CANCELLED')), due_at TIMESTAMPTZ NOT NULL, started_at TIMESTAMPTZ, completed_at TIMESTAMPTZ, result TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
+CREATE INDEX handoffs_list_idx ON operational_handoffs(client_id, release_id, ops_owner_id, status);
+CREATE INDEX followups_list_idx ON client_follow_ups(client_id, owner_id, status, due_at);

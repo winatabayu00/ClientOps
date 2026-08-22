@@ -1,0 +1,617 @@
+openapi: 3.0.3
+info:
+  title: ClientOps API
+  version: 1.0.0
+  description: |
+    Implemented ClientOps REST API. Base path: `/api/v1`.
+
+    Authentication uses HttpOnly access and refresh cookies. Obtain the readable `clientops_csrf` cookie with `GET /auth/csrf`; send its exact value in `X-CSRF-Token` on every state-changing request, including login and refresh. Cookies are issued by login/refresh and must be sent with requests. Cookie names are deployment-configurable; `clientops_access` and `clientops_refresh` are the defaults used here. The refresh cookie is scoped to `/api/v1/auth`.
+servers:
+  - url: /api/v1
+tags:
+  - name: Auth
+  - name: Clients
+  - name: Issues
+  - name: Releases
+  - name: Handoffs
+  - name: Follow-ups
+  - name: Feature Requests
+  - name: Users
+  - name: Roles
+  - name: Permissions
+  - name: Dashboard
+paths:
+  /users:
+    get:
+      tags: [Users]
+      summary: List users
+      description: Requires `user.manage`. Filters: `search`, `status` (`ACTIVE` or `INACTIVE`), `role`, `page`, `limit`.
+      security: [{ AccessCookie: [] }]
+      responses: { '200': { $ref: '#/components/responses/UserListSuccess' }, '401': { $ref: '#/components/responses/AuthenticationError' }, '403': { $ref: '#/components/responses/PermissionError' }, '422': { $ref: '#/components/responses/ValidationError' } }
+    post:
+      tags: [Users]
+      summary: Create user
+      description: Requires `user.manage`. Passwords use Argon2id; minimum 12 characters.
+      security: [{ AccessCookie: [], CSRFToken: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateUserRequest' } } } }
+      responses: { '201': { $ref: '#/components/responses/UserSuccess' }, '403': { $ref: '#/components/responses/PermissionOrCSRFError' }, '409': { $ref: '#/components/responses/ConflictError' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /users/{id}:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    get:
+      tags: [Users]
+      summary: Get user
+      security: [{ AccessCookie: [] }]
+      responses: { '200': { $ref: '#/components/responses/UserSuccess' }, '403': { $ref: '#/components/responses/PermissionError' }, '404': { $ref: '#/components/responses/ResourceNotFound' }, '422': { $ref: '#/components/responses/ValidationError' } }
+    patch:
+      tags: [Users]
+      summary: Update user name or status
+      description: Requires `user.manage`. The caller cannot deactivate themselves.
+      security: [{ AccessCookie: [], CSRFToken: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UpdateUserRequest' } } } }
+      responses: { '200': { $ref: '#/components/responses/UserSuccess' }, '403': { $ref: '#/components/responses/PermissionOrCSRFError' }, '404': { $ref: '#/components/responses/ResourceNotFound' }, '409': { $ref: '#/components/responses/ConflictError' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /users/{id}/roles:
+    put:
+      tags: [Users]
+      summary: Replace user roles
+      description: Requires `user.manage`. A caller cannot replace their own roles.
+      security: [{ AccessCookie: [], CSRFToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RoleIDsRequest' } } } }
+      responses: { '200': { $ref: '#/components/responses/EmptySuccess' }, '403': { $ref: '#/components/responses/PermissionOrCSRFError' }, '404': { $ref: '#/components/responses/ResourceNotFound' }, '409': { $ref: '#/components/responses/ConflictError' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /roles:
+    get:
+      tags: [Roles]
+      summary: List roles with permissions
+      description: Requires `role.manage`.
+      security: [{ AccessCookie: [] }]
+      responses: { '200': { $ref: '#/components/responses/RoleListSuccess' }, '403': { $ref: '#/components/responses/PermissionError' } }
+    post:
+      tags: [Roles]
+      summary: Create role
+      description: Requires `role.manage`.
+      security: [{ AccessCookie: [], CSRFToken: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RoleRequest' } } } }
+      responses: { '201': { $ref: '#/components/responses/RoleSuccess' }, '403': { $ref: '#/components/responses/PermissionOrCSRFError' }, '409': { $ref: '#/components/responses/ConflictError' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /roles/{id}:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    get:
+      tags: [Roles]
+      summary: Get role
+      security: [{ AccessCookie: [] }]
+      responses: { '200': { $ref: '#/components/responses/RoleSuccess' }, '403': { $ref: '#/components/responses/PermissionError' }, '404': { $ref: '#/components/responses/ResourceNotFound' } }
+    patch:
+      tags: [Roles]
+      summary: Update role
+      security: [{ AccessCookie: [], CSRFToken: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RoleRequest' } } } }
+      responses: { '200': { $ref: '#/components/responses/RoleSuccess' }, '403': { $ref: '#/components/responses/PermissionOrCSRFError' }, '404': { $ref: '#/components/responses/ResourceNotFound' }, '409': { $ref: '#/components/responses/ConflictError' }, '422': { $ref: '#/components/responses/ValidationError' } }
+    delete:
+      tags: [Roles]
+      summary: Delete unused role
+      description: Requires `role.manage`. Roles assigned to users cannot be deleted.
+      security: [{ AccessCookie: [], CSRFToken: [] }]
+      responses: { '204': { description: Role deleted. }, '403': { $ref: '#/components/responses/PermissionOrCSRFError' }, '404': { $ref: '#/components/responses/ResourceNotFound' }, '409': { $ref: '#/components/responses/ConflictError' } }
+  /permissions:
+    get:
+      tags: [Permissions]
+      summary: List system-defined permissions
+      description: Requires `role.manage`.
+      security: [{ AccessCookie: [] }]
+      responses: { '200': { $ref: '#/components/responses/PermissionListSuccess' }, '403': { $ref: '#/components/responses/PermissionError' } }
+  /auth/csrf:
+    get:
+      tags: [Auth]
+      summary: Issue CSRF cookie
+      security: []
+      responses:
+        '200': { $ref: '#/components/responses/CSRFIssued' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login and issue auth cookies
+      security: [{ CSRFToken: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/LoginRequest' } } } }
+      responses:
+        '200': { $ref: '#/components/responses/LoginSuccess' }
+        '401': { $ref: '#/components/responses/InvalidCredentials' }
+        '403': { $ref: '#/components/responses/CSRFError' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Rotate refresh token and issue new auth cookies
+      security: [{ RefreshCookie: [], CSRFToken: [] }]
+      responses:
+        '200': { $ref: '#/components/responses/RefreshSuccess' }
+        '401': { $ref: '#/components/responses/InvalidRefreshToken' }
+        '403': { $ref: '#/components/responses/CSRFError' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Clear auth cookies; revoke session when refresh cookie is present
+      security: [{ CSRFToken: [] }]
+      responses:
+        '204': { description: Logged out. Auth cookies cleared. }
+        '403': { $ref: '#/components/responses/CSRFError' }
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get current user
+      security: [{ AccessCookie: [] }]
+      responses:
+        '200': { $ref: '#/components/responses/UserSuccess' }
+        '401': { $ref: '#/components/responses/AuthenticationError' }
+  /clients:
+    get:
+      tags: [Clients]
+      summary: List accessible clients
+      description: Requires `client.read`. `OPS_STAFF` sees only assigned clients.
+      security: [{ AccessCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/Page' }, { $ref: '#/components/parameters/Limit' }, { $ref: '#/components/parameters/Search' }, { $ref: '#/components/parameters/ClientStatus' }, { $ref: '#/components/parameters/ClientType' }, { $ref: '#/components/parameters/OwnerID' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Order' }]
+      responses: { '200': { $ref: '#/components/responses/ClientListSuccess' }, '401': { $ref: '#/components/responses/AuthenticationError' }, '403': { $ref: '#/components/responses/PermissionError' }, '500': { $ref: '#/components/responses/InternalError' } }
+    post:
+      tags: [Clients]
+      summary: Create client
+      description: Requires `client.create`.
+      security: [{ AccessCookie: [], CSRFToken: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateClientRequest' } } } }
+      responses: { '201': { $ref: '#/components/responses/ClientCreated' }, '403': { $ref: '#/components/responses/PermissionOrCSRFError' }, '409': { $ref: '#/components/responses/ConflictError' }, '422': { $ref: '#/components/responses/ValidationError' }, '500': { $ref: '#/components/responses/InternalError' } }
+  /clients/{id}:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    get:
+      tags: [Clients]
+      summary: Get client
+      security: [{ AccessCookie: [] }]
+      responses: { '200': { $ref: '#/components/responses/ClientSuccess' }, '403': { $ref: '#/components/responses/PermissionError' }, '404': { $ref: '#/components/responses/ClientNotFound' }, '422': { $ref: '#/components/responses/ValidationError' } }
+    patch:
+      tags: [Clients]
+      summary: Update client
+      description: Requires `client.update`. `version` implements optimistic locking.
+      security: [{ AccessCookie: [], CSRFToken: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UpdateClientRequest' } } } }
+       responses: { '200': { $ref: '#/components/responses/ClientUpdated' }, '403': { $ref: '#/components/responses/PermissionOrCSRFError' }, '404': { $ref: '#/components/responses/ClientNotFound' }, '409': { $ref: '#/components/responses/VersionConflict' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /clients/{id}/timeline:
+    get:
+      tags: [Clients]
+      summary: List derived client activity
+      description: Requires `client.read`. Events are derived from persisted issue, release impact, handoff, and follow-up records. `OPS_STAFF` sees only assigned clients.
+      security: [{ AccessCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/ID' }, { $ref: '#/components/parameters/Page' }, { $ref: '#/components/parameters/Limit' }, { name: type, in: query, schema: { type: string, enum: [ISSUE_REPORTED, ISSUE_STATUS_CHANGED, RELEASE_IMPACT_IDENTIFIED, HANDOFF_CREATED, HANDOFF_ACKNOWLEDGED, HANDOFF_COMPLETED, FOLLOW_UP_CREATED, FOLLOW_UP_COMPLETED] } }, { name: from, in: query, schema: { type: string, format: date-time } }, { name: to, in: query, schema: { type: string, format: date-time } }]
+      responses: { '200': { description: Timeline events }, '401': { $ref: '#/components/responses/AuthenticationError' }, '403': { $ref: '#/components/responses/PermissionError' }, '404': { $ref: '#/components/responses/ClientNotFound' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /dashboard/overview:
+    get:
+      tags: [Dashboard]
+      summary: Get scoped operational overview
+      description: Requires `client.read`. `open` excludes CLOSED and CANCELLED issues; `critical` is open issues with CRITICAL severity; `pending` follow-ups are OPEN or IN_PROGRESS; `overdue` pending follow-ups have `due_at` before request time; pending handoffs have status PENDING. `OPS_STAFF` metrics include assigned clients only. SLA and client-health metrics are unavailable because current tables do not persist their inputs.
+      security: [{ AccessCookie: [] }]
+      responses: { '200': { description: Scoped overview }, '401': { $ref: '#/components/responses/AuthenticationError' }, '403': { $ref: '#/components/responses/PermissionError' }, '500': { $ref: '#/components/responses/InternalError' } }
+  /clients/{id}/archive:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    post:
+      tags: [Clients]
+      summary: Archive client
+      description: Requires `client.archive`.
+      security: [{ AccessCookie: [], CSRFToken: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/VersionRequest' } } } }
+      responses: { '204': { description: Client archived. }, '403': { $ref: '#/components/responses/PermissionOrCSRFError' }, '404': { $ref: '#/components/responses/ClientNotFound' }, '409': { $ref: '#/components/responses/VersionConflict' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /clients/{id}/owners:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    get:
+      tags: [Clients]
+      summary: List client owners
+      security: [{ AccessCookie: [] }]
+      responses: { '200': { $ref: '#/components/responses/OwnerListSuccess' }, '403': { $ref: '#/components/responses/PermissionError' }, '404': { $ref: '#/components/responses/ClientNotFound' }, '422': { $ref: '#/components/responses/ValidationError' } }
+    post:
+      tags: [Clients]
+      summary: Assign client owner
+      description: Requires `client.assign_owner`.
+      security: [{ AccessCookie: [], CSRFToken: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AddOwnerRequest' } } } }
+      responses: { '201': { $ref: '#/components/responses/EmptyCreated' }, '403': { $ref: '#/components/responses/PermissionOrCSRFError' }, '404': { $ref: '#/components/responses/ClientNotFound' }, '409': { $ref: '#/components/responses/ConflictError' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /clients/{id}/change-primary-owner:
+    post:
+      tags: [Clients]
+      summary: Change primary owner
+      description: Requires `client.assign_owner`.
+      security: [{ AccessCookie: [], CSRFToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ChangePrimaryOwnerRequest' } } } }
+      responses: { '200': { $ref: '#/components/responses/EmptySuccess' }, '403': { $ref: '#/components/responses/PermissionOrCSRFError' }, '404': { $ref: '#/components/responses/ClientNotFound' }, '409': { $ref: '#/components/responses/ConflictError' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /clients/{id}/contacts:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    get:
+      tags: [Clients]
+      summary: List client contacts
+      security: [{ AccessCookie: [] }]
+      responses: { '200': { $ref: '#/components/responses/ContactListSuccess' }, '403': { $ref: '#/components/responses/PermissionError' }, '404': { $ref: '#/components/responses/ClientNotFound' }, '422': { $ref: '#/components/responses/ValidationError' } }
+    post:
+      tags: [Clients]
+      summary: Add client contact
+      description: Requires `client.update`.
+      security: [{ AccessCookie: [], CSRFToken: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateContactRequest' } } } }
+      responses: { '201': { $ref: '#/components/responses/ContactCreated' }, '403': { $ref: '#/components/responses/PermissionOrCSRFError' }, '404': { $ref: '#/components/responses/ClientNotFound' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /issues:
+    get:
+      tags: [Issues]
+      summary: List accessible issues
+      security: [{ AccessCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/Page' }, { $ref: '#/components/parameters/Limit' }, { $ref: '#/components/parameters/Search' }, { $ref: '#/components/parameters/ClientID' }, { $ref: '#/components/parameters/IssueStatus' }, { $ref: '#/components/parameters/Severity' }, { $ref: '#/components/parameters/Category' }, { $ref: '#/components/parameters/AssigneeID' }, { $ref: '#/components/parameters/ReporterID' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Order' }]
+      responses: { '200': { $ref: '#/components/responses/IssueListSuccess' }, '401': { $ref: '#/components/responses/AuthenticationError' }, '403': { $ref: '#/components/responses/PermissionError' }, '500': { $ref: '#/components/responses/InternalError' } }
+    post:
+      tags: [Issues]
+      summary: Create issue
+      description: Requires `issue.create`.
+      security: [{ AccessCookie: [], CSRFToken: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateIssueRequest' } } } }
+      responses: { '201': { $ref: '#/components/responses/IssueCreated' }, '403': { $ref: '#/components/responses/PermissionOrCSRFError' }, '422': { $ref: '#/components/responses/ValidationError' }, '500': { $ref: '#/components/responses/InternalError' } }
+  /issues/{id}:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    get:
+      tags: [Issues]
+      summary: Get issue
+      security: [{ AccessCookie: [] }]
+      responses: { '200': { $ref: '#/components/responses/IssueSuccess' }, '403': { $ref: '#/components/responses/PermissionError' }, '404': { $ref: '#/components/responses/IssueNotFound' }, '422': { $ref: '#/components/responses/ValidationError' } }
+    patch:
+      tags: [Issues]
+      summary: Update issue attributes
+      description: Requires `issue.update`. Does not change workflow status.
+      security: [{ AccessCookie: [], CSRFToken: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UpdateIssueRequest' } } } }
+      responses: { '200': { $ref: '#/components/responses/IssueUpdated' }, '403': { $ref: '#/components/responses/PermissionOrCSRFError' }, '404': { $ref: '#/components/responses/IssueNotFound' }, '409': { $ref: '#/components/responses/IssueConflict' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /issues/{id}/history:
+    get:
+      tags: [Issues]
+      summary: List issue status history
+      security: [{ AccessCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      responses: { '200': { $ref: '#/components/responses/HistoryListSuccess' }, '403': { $ref: '#/components/responses/PermissionError' }, '404': { $ref: '#/components/responses/IssueNotFound' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /issues/{id}/triage: { $ref: '#/components/x-pathItems/IssueTriage' }
+  /issues/{id}/assign: { $ref: '#/components/x-pathItems/IssueAssign' }
+  /issues/{id}/start-investigation: { $ref: '#/components/x-pathItems/IssueStartInvestigation' }
+  /issues/{id}/start-development: { $ref: '#/components/x-pathItems/IssueStartDevelopment' }
+  /issues/{id}/mark-qa: { $ref: '#/components/x-pathItems/IssueMarkQA' }
+  /issues/{id}/qa-failed: { $ref: '#/components/x-pathItems/IssueQAFailed' }
+  /issues/{id}/mark-released: { $ref: '#/components/x-pathItems/IssueMarkReleased' }
+  /issues/{id}/start-follow-up: { $ref: '#/components/x-pathItems/IssueStartFollowUp' }
+  /issues/{id}/close: { $ref: '#/components/x-pathItems/IssueClose' }
+  /issues/{id}/reopen: { $ref: '#/components/x-pathItems/IssueReopen' }
+  /releases:
+    get:
+      tags: [Releases]
+      summary: List releases
+      security: [{ AccessCookie: [] }]
+      responses: { '200': { $ref: '#/components/responses/ReleaseListSuccess' }, '401': { $ref: '#/components/responses/AuthenticationError' }, '403': { $ref: '#/components/responses/PermissionError' }, '500': { $ref: '#/components/responses/InternalError' } }
+    post:
+      tags: [Releases]
+      summary: Create release
+      description: Requires `release.create`.
+      security: [{ AccessCookie: [], CSRFToken: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateReleaseRequest' } } } }
+      responses: { '201': { $ref: '#/components/responses/ReleaseCreated' }, '403': { $ref: '#/components/responses/PermissionOrCSRFError' }, '422': { $ref: '#/components/responses/ValidationError' }, '500': { $ref: '#/components/responses/InternalError' } }
+  /releases/{id}:
+    get:
+      tags: [Releases]
+      summary: Get release detail
+      security: [{ AccessCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      responses: { '200': { $ref: '#/components/responses/ReleaseDetailSuccess' }, '403': { $ref: '#/components/responses/PermissionError' }, '404': { $ref: '#/components/responses/ReleaseNotFound' }, '500': { $ref: '#/components/responses/InternalError' } }
+  /releases/{id}/items:
+    post:
+      tags: [Releases]
+      summary: Add release item
+      description: Requires `release.update`.
+      security: [{ AccessCookie: [], CSRFToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateReleaseItemRequest' } } } }
+      responses: { '201': { $ref: '#/components/responses/ReleaseItemCreated' }, '403': { $ref: '#/components/responses/PermissionOrCSRFError' }, '404': { $ref: '#/components/responses/ReleaseNotFound' }, '422': { $ref: '#/components/responses/ValidationError' }, '500': { $ref: '#/components/responses/InternalError' } }
+  /releases/{id}/impacts:
+    post:
+      tags: [Releases]
+      summary: Replace release impacts
+      description: Requires `release.manage_impact`.
+      security: [{ AccessCookie: [], CSRFToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SetImpactsRequest' } } } }
+      responses: { '200': { $ref: '#/components/responses/EmptySuccess' }, '403': { $ref: '#/components/responses/PermissionOrCSRFError' }, '404': { $ref: '#/components/responses/ReleaseNotFound' }, '422': { $ref: '#/components/responses/ValidationError' }, '500': { $ref: '#/components/responses/InternalError' } }
+  /releases/{id}/ready:
+    post:
+      tags: [Releases]
+      summary: Mark release ready
+      description: Requires `release.update`.
+      security: [{ AccessCookie: [], CSRFToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      responses: { '200': { $ref: '#/components/responses/ReleaseSuccess' }, '403': { $ref: '#/components/responses/PermissionOrCSRFError' }, '404': { $ref: '#/components/responses/ReleaseNotFound' }, '409': { $ref: '#/components/responses/ReleaseConflict' }, '500': { $ref: '#/components/responses/InternalError' } }
+  /releases/{id}/publish:
+    post:
+      tags: [Releases]
+      summary: Publish release and generate handoffs
+      description: Requires `release.publish`.
+      security: [{ AccessCookie: [], CSRFToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      responses: { '200': { $ref: '#/components/responses/ReleasePublished' }, '403': { $ref: '#/components/responses/PermissionOrCSRFError' }, '404': { $ref: '#/components/responses/ReleaseNotFound' }, '409': { $ref: '#/components/responses/ReleaseConflict' }, '500': { $ref: '#/components/responses/InternalError' } }
+  /documentation:
+    get:
+      tags: [Documentation]
+      summary: List documentation
+      description: Requires `documentation.read`.
+      security: [{ AccessCookie: [] }]
+      responses: { '200': { description: Documentation list. }, '401': { $ref: '#/components/responses/AuthenticationError' }, '403': { $ref: '#/components/responses/PermissionError' }, '500': { $ref: '#/components/responses/InternalError' } }
+    post:
+      tags: [Documentation]
+      summary: Create documentation draft
+      description: Requires `documentation.create`.
+      security: [{ AccessCookie: [], CSRFToken: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/DocumentationRequest' } } } }
+      responses: { '201': { description: Documentation draft created. }, '403': { $ref: '#/components/responses/PermissionOrCSRFError' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /documentation/{id}:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    get:
+      tags: [Documentation]
+      summary: Get documentation
+      security: [{ AccessCookie: [] }]
+      responses: { '200': { description: Documentation detail. }, '404': { $ref: '#/components/responses/ResourceNotFound' }, '403': { $ref: '#/components/responses/PermissionError' } }
+    patch:
+      tags: [Documentation]
+      summary: Edit documentation draft
+      description: Requires `documentation.update`. Only `DRAFT`; `version` prevents stale writes.
+      security: [{ AccessCookie: [], CSRFToken: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { allOf: [{ $ref: '#/components/schemas/DocumentationRequest' }, { $ref: '#/components/schemas/VersionRequest' }] } } } }
+      responses: { '200': { description: Documentation updated. }, '409': { description: Invalid state or stale version. }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /documentation/{id}/{action}:
+    post:
+      tags: [Documentation]
+      summary: Documentation lifecycle action
+      description: 'Actions: `submit-review` requires `documentation.review` from `DRAFT`; `publish` requires `documentation.publish` from `IN_REVIEW`; `archive` requires `documentation.archive`. All require `version`.'
+      security: [{ AccessCookie: [], CSRFToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/ID' }, { name: action, in: path, required: true, schema: { type: string, enum: [submit-review, publish, archive] } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/VersionRequest' } } } }
+      responses: { '200': { description: Documentation transitioned. }, '409': { description: Invalid state or stale version. }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /documentation/{id}/releases:
+    post:
+      tags: [Documentation]
+      summary: Link documentation to release
+      description: Requires `documentation.update`. Published linked documentation satisfies handoff completion's documentation requirement.
+      security: [{ AccessCookie: [], CSRFToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [release_id], properties: { release_id: { type: string, format: uuid } } } } } }
+      responses: { '200': { description: Release linked. }, '404': { $ref: '#/components/responses/ResourceNotFound' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /handoffs:
+    get:
+      tags: [Handoffs]
+      summary: List handoffs
+      description: Requires `release.read`. Non-managers are restricted to their own handoffs; supplied `ops_owner_id` is ignored.
+      security: [{ AccessCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/ClientID' }, { $ref: '#/components/parameters/ReleaseID' }, { $ref: '#/components/parameters/OpsOwnerID' }, { $ref: '#/components/parameters/HandoffStatus' }]
+      responses: { '200': { $ref: '#/components/responses/HandoffListSuccess' }, '401': { $ref: '#/components/responses/AuthenticationError' }, '403': { $ref: '#/components/responses/PermissionError' }, '500': { $ref: '#/components/responses/InternalError' } }
+  /handoffs/{id}:
+    get:
+      tags: [Handoffs]
+      summary: Get handoff
+      security: [{ AccessCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      responses: { '200': { $ref: '#/components/responses/HandoffSuccess' }, '403': { $ref: '#/components/responses/AccessError' }, '404': { $ref: '#/components/responses/ResourceNotFound' }, '500': { $ref: '#/components/responses/InternalError' } }
+  /handoffs/{id}/acknowledge: { $ref: '#/components/x-pathItems/HandoffAcknowledge' }
+  /handoffs/{id}/complete: { $ref: '#/components/x-pathItems/HandoffComplete' }
+  /follow-ups:
+    get:
+      tags: [Follow-ups]
+      summary: List follow-ups
+      description: Requires `client_followup.create`. Non-managers are restricted to their own records; supplied `owner_id` is ignored.
+      security: [{ AccessCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/ClientID' }, { $ref: '#/components/parameters/OwnerID' }, { $ref: '#/components/parameters/FollowUpStatus' }]
+      responses: { '200': { $ref: '#/components/responses/FollowUpListSuccess' }, '401': { $ref: '#/components/responses/AuthenticationError' }, '403': { $ref: '#/components/responses/PermissionError' }, '500': { $ref: '#/components/responses/InternalError' } }
+    post:
+      tags: [Follow-ups]
+      summary: Create follow-up
+      description: Requires `client_followup.create`. Non-managers may create only for themselves.
+      security: [{ AccessCookie: [], CSRFToken: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateFollowUpRequest' } } } }
+      responses: { '201': { $ref: '#/components/responses/FollowUpCreated' }, '403': { $ref: '#/components/responses/PermissionOrCSRFError' }, '404': { $ref: '#/components/responses/ResourceNotFound' }, '422': { $ref: '#/components/responses/ValidationError' }, '500': { $ref: '#/components/responses/InternalError' } }
+  /follow-ups/{id}/start: { $ref: '#/components/x-pathItems/FollowUpStart' }
+  /follow-ups/{id}/complete: { $ref: '#/components/x-pathItems/FollowUpComplete' }
+  /feature-requests:
+    get:
+      tags: [Feature Requests]
+      summary: List accessible feature demand
+      description: Requires `feature_request.read`. `OPS_STAFF` sees requests linked to owned clients. Supports `search`, `status`, `priority`, `client_id`, `product_owner_id`, `page`, `limit`.
+      security: [{ AccessCookie: [] }]
+      responses: { '200': { description: Paginated feature requests with demand counts available from detail. }, '401': { $ref: '#/components/responses/AuthenticationError' }, '403': { $ref: '#/components/responses/PermissionError' } }
+    post:
+      tags: [Feature Requests]
+      summary: Create feature demand
+      description: Requires `feature_request.create`. Creates one capability request plus its initial client demand.
+      security: [{ AccessCookie: [], CSRFToken: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [client_id, title, problem_statement, expected_outcome], properties: { client_id: { type: string, format: uuid }, title: { type: string }, problem_statement: { type: string }, expected_outcome: { type: string } } } } } }
+      responses: { '201': { description: Feature request created. }, '403': { $ref: '#/components/responses/PermissionOrCSRFError' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /feature-requests/{id}:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    get:
+      tags: [Feature Requests]
+      summary: Get feature request demand detail
+      description: Includes requesting clients, `client_count`, and `oldest_request_at`.
+      security: [{ AccessCookie: [] }]
+      responses: { '200': { description: Feature request demand detail. }, '404': { description: Feature request unavailable. }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /feature-requests/{id}/add-client:
+    post:
+      tags: [Feature Requests]
+      summary: Add client demand
+      description: Requires `feature_request.create`. Rejects duplicate client demand.
+      security: [{ AccessCookie: [], CSRFToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [client_id], properties: { client_id: { type: string, format: uuid }, client_context: { type: string } } } } } }
+      responses: { '201': { description: Client demand added. }, '409': { $ref: '#/components/responses/ConflictError' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /feature-requests/{id}/{action}:
+    post:
+      tags: [Feature Requests]
+      summary: Transition feature request
+      description: 'Explicit actions: `start-review`, `accept`, `reject`, `mark-planned`, `start-development`, `mark-released`, `mark-delivered`, `mark-duplicate`. Requires the action permission. All actions require `version`; reject requires `reason`; mark-duplicate requires `original_request_id`.'
+      security: [{ AccessCookie: [], CSRFToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/ID' }, { name: action, in: path, required: true, schema: { type: string, enum: [start-review, accept, reject, mark-planned, start-development, mark-released, mark-delivered, mark-duplicate] } }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [version], properties: { version: { type: integer, minimum: 1 }, reason: { type: string }, original_request_id: { type: string, format: uuid } } } } } }
+      responses: { '200': { description: Feature request transitioned. }, '409': { description: 'Invalid transition, stale version, or duplicate demand.' }, '422': { $ref: '#/components/responses/ValidationError' } }
+components:
+  x-pathItems:
+    IssueTriage: &issue_action { post: &issue_post { tags: [Issues], summary: Issue workflow action, description: 'Requires route-specific issue permission and `version`. `mark-released` requires `release_id`; `reopen` requires `reason`.', security: [{ AccessCookie: [], CSRFToken: [] }], parameters: [{ $ref: '#/components/parameters/ID' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/IssueActionRequest' } } } }, responses: { '200': { $ref: '#/components/responses/IssueUpdated' }, '403': { $ref: '#/components/responses/PermissionOrCSRFError' }, '404': { $ref: '#/components/responses/IssueNotFound' }, '409': { $ref: '#/components/responses/IssueConflict' }, '422': { $ref: '#/components/responses/ValidationError' }, '500': { $ref: '#/components/responses/InternalError' } } } }
+    IssueAssign: { post: *issue_post }
+    IssueStartInvestigation: { post: *issue_post }
+    IssueStartDevelopment: { post: *issue_post }
+    IssueMarkQA: { post: *issue_post }
+    IssueQAFailed: { post: *issue_post }
+    IssueMarkReleased: { post: *issue_post }
+    IssueStartFollowUp: { post: *issue_post }
+    IssueClose: { post: *issue_post }
+    IssueReopen: { post: *issue_post }
+    HandoffAcknowledge: &handoff_action { post: &handoff_post { tags: [Handoffs], summary: Handoff workflow action, description: 'Requires `issue.follow_up`. Assigned owner or `SUPER_ADMIN`/`OPS_MANAGER` only. Completion requires published documentation and completed required follow-up.', security: [{ AccessCookie: [], CSRFToken: [] }], parameters: [{ $ref: '#/components/parameters/ID' }], responses: { '200': { $ref: '#/components/responses/HandoffSuccess' }, '403': { $ref: '#/components/responses/PermissionOrCSRFError' }, '404': { $ref: '#/components/responses/ResourceNotFound' }, '409': { $ref: '#/components/responses/HandoffConflict' }, '500': { $ref: '#/components/responses/InternalError' } } } }
+    HandoffComplete: { post: *handoff_post }
+    FollowUpStart: { post: { tags: [Follow-ups], summary: Start follow-up, description: 'Requires `client_followup.create`. Owner or manager only.', security: [{ AccessCookie: [], CSRFToken: [] }], parameters: [{ $ref: '#/components/parameters/ID' }], responses: { '200': { $ref: '#/components/responses/FollowUpSuccess' }, '403': { $ref: '#/components/responses/PermissionOrCSRFError' }, '404': { $ref: '#/components/responses/ResourceNotFound' }, '409': { $ref: '#/components/responses/OperationConflict' }, '500': { $ref: '#/components/responses/InternalError' } } } }
+    FollowUpComplete: { post: { tags: [Follow-ups], summary: Complete follow-up, description: 'Requires `client_followup.complete`. Owner or manager only.', security: [{ AccessCookie: [], CSRFToken: [] }], parameters: [{ $ref: '#/components/parameters/ID' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CompleteFollowUpRequest' } } } }, responses: { '200': { $ref: '#/components/responses/FollowUpSuccess' }, '403': { $ref: '#/components/responses/PermissionOrCSRFError' }, '404': { $ref: '#/components/responses/ResourceNotFound' }, '409': { $ref: '#/components/responses/OperationConflict' }, '422': { $ref: '#/components/responses/ValidationError' }, '500': { $ref: '#/components/responses/InternalError' } } } }
+  securitySchemes:
+    AccessCookie: { type: apiKey, in: cookie, name: clientops_access, description: HttpOnly access-token cookie; actual name is server-configurable. }
+    RefreshCookie: { type: apiKey, in: cookie, name: clientops_refresh, description: HttpOnly refresh-token cookie; actual name is server-configurable. }
+    CSRFToken: { type: apiKey, in: header, name: X-CSRF-Token, description: Exact value of readable `clientops_csrf` cookie. }
+  parameters:
+    ID: { name: id, in: path, required: true, schema: { $ref: '#/components/schemas/UUID' } }
+    Page: { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+    Limit: { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+    Search: { name: search, in: query, schema: { type: string } }
+    Sort: { name: sort, in: query, schema: { type: string } }
+    Order: { name: order, in: query, schema: { type: string } }
+    ClientID: { name: client_id, in: query, schema: { $ref: '#/components/schemas/UUID' } }
+    OwnerID: { name: owner_id, in: query, schema: { $ref: '#/components/schemas/UUID' } }
+    OpsOwnerID: { name: ops_owner_id, in: query, schema: { $ref: '#/components/schemas/UUID' } }
+    ReleaseID: { name: release_id, in: query, schema: { $ref: '#/components/schemas/UUID' } }
+    AssigneeID: { name: assignee_id, in: query, schema: { $ref: '#/components/schemas/UUID' } }
+    ReporterID: { name: reporter_id, in: query, schema: { $ref: '#/components/schemas/UUID' } }
+    ClientStatus: { name: status, in: query, schema: { type: string, enum: [ACTIVE, ONBOARDING, INACTIVE] } }
+    ClientType: { name: type, in: query, schema: { $ref: '#/components/schemas/ClientType' } }
+    IssueStatus: { name: status, in: query, schema: { $ref: '#/components/schemas/IssueStatus' } }
+    Severity: { name: severity, in: query, schema: { $ref: '#/components/schemas/Severity' } }
+    Category: { name: category, in: query, schema: { type: string } }
+    HandoffStatus: { name: status, in: query, schema: { type: string } }
+    FollowUpStatus: { name: status, in: query, schema: { type: string } }
+  x-core-schemas: &core_schemas
+    UUID: { type: string, format: uuid }
+    DateTime: { type: string, format: date-time }
+    ClientType: { type: string, enum: [ELEMENTARY, JUNIOR_HIGH, SENIOR_HIGH, VOCATIONAL, OTHER] }
+    Severity: { type: string, enum: [LOW, MEDIUM, HIGH, CRITICAL] }
+    IssueStatus: { type: string, enum: [REPORTED, TRIAGED, INVESTIGATING, IN_DEVELOPMENT, QA, RELEASED, FOLLOW_UP, CLOSED, REOPENED, CANCELLED] }
+    User: { type: object, required: [id, name, email, roles, permissions], properties: { id: { $ref: '#/components/schemas/UUID' }, name: { type: string }, email: { type: string, format: email }, roles: { type: array, items: { type: string } }, permissions: { type: array, items: { type: string } } } }
+    ManagedUser: { type: object, properties: { id: { $ref: '#/components/schemas/UUID' }, name: { type: string }, email: { type: string, format: email }, is_active: { type: boolean }, roles: { type: array, items: { $ref: '#/components/schemas/Role' } } } }
+    Permission: { type: object, properties: { id: { $ref: '#/components/schemas/UUID' }, code: { type: string }, description: { type: string, nullable: true } } }
+    Role: { type: object, properties: { id: { $ref: '#/components/schemas/UUID' }, name: { type: string }, description: { type: string, nullable: true }, permissions: { type: array, items: { $ref: '#/components/schemas/Permission' } } } }
+    Client: { type: object, properties: { id: { $ref: '#/components/schemas/UUID' }, code: { type: string }, name: { type: string }, slug: { type: string }, type: { $ref: '#/components/schemas/ClientType' }, status: { type: string, enum: [ACTIVE, ONBOARDING, INACTIVE] }, province: { type: string, nullable: true }, city: { type: string, nullable: true }, address: { type: string, nullable: true }, subscription_start: { $ref: '#/components/schemas/DateTime', nullable: true }, subscription_end: { $ref: '#/components/schemas/DateTime', nullable: true }, version: { type: integer }, created_at: { $ref: '#/components/schemas/DateTime' }, updated_at: { $ref: '#/components/schemas/DateTime' }, archived_at: { $ref: '#/components/schemas/DateTime', nullable: true } } }
+    Owner: { type: object, properties: { id: { $ref: '#/components/schemas/UUID' }, user_id: { $ref: '#/components/schemas/UUID' }, owner_type: { type: string, enum: [PRIMARY, SECONDARY, TECHNICAL] }, assigned_at: { $ref: '#/components/schemas/DateTime' }, unassigned_at: { $ref: '#/components/schemas/DateTime', nullable: true } } }
+    Contact: { type: object, properties: { id: { $ref: '#/components/schemas/UUID' }, client_id: { $ref: '#/components/schemas/UUID' }, name: { type: string }, position: { type: string, nullable: true }, email: { type: string, nullable: true }, phone: { type: string, nullable: true }, is_primary: { type: boolean } } }
+    Issue: { type: object, properties: { id: { $ref: '#/components/schemas/UUID' }, issue_number: { type: string }, client_id: { $ref: '#/components/schemas/UUID' }, title: { type: string }, description: { type: string }, category: { type: string }, severity: { $ref: '#/components/schemas/Severity' }, status: { $ref: '#/components/schemas/IssueStatus' }, reporter_id: { $ref: '#/components/schemas/UUID' }, assignee_id: { $ref: '#/components/schemas/UUID', nullable: true }, release_id: { $ref: '#/components/schemas/UUID', nullable: true }, resolution_summary: { type: string, nullable: true }, version: { type: integer }, reported_at: { $ref: '#/components/schemas/DateTime' }, created_at: { $ref: '#/components/schemas/DateTime' }, updated_at: { $ref: '#/components/schemas/DateTime' }, triaged_at: { $ref: '#/components/schemas/DateTime', nullable: true }, resolved_at: { $ref: '#/components/schemas/DateTime', nullable: true }, closed_at: { $ref: '#/components/schemas/DateTime', nullable: true } } }
+    History: { type: object, properties: { id: { $ref: '#/components/schemas/UUID' }, issue_id: { $ref: '#/components/schemas/UUID' }, from_status: { type: string }, to_status: { type: string }, changed_by: { $ref: '#/components/schemas/UUID' }, reason: { type: string, nullable: true }, created_at: { $ref: '#/components/schemas/DateTime' } } }
+    Release: { type: object, properties: { id: { $ref: '#/components/schemas/UUID' }, version: { type: string }, title: { type: string }, summary: { type: string }, status: { type: string }, release_date: { $ref: '#/components/schemas/DateTime', nullable: true }, created_by: { $ref: '#/components/schemas/UUID' }, published_by: { $ref: '#/components/schemas/UUID', nullable: true }, created_at: { $ref: '#/components/schemas/DateTime' }, updated_at: { $ref: '#/components/schemas/DateTime' } } }
+    ReleaseItem: { type: object, properties: { id: { $ref: '#/components/schemas/UUID' }, release_id: { $ref: '#/components/schemas/UUID' }, type: { type: string, enum: [FEATURE, BUG_FIX, IMPROVEMENT, SECURITY] }, title: { type: string }, description: { type: string } } }
+    Impact: { type: object, required: [client_id, impact_type, requires_follow_up], properties: { client_id: { $ref: '#/components/schemas/UUID' }, impact_type: { type: string, enum: [DIRECT, GENERAL, OPTIONAL] }, requires_follow_up: { type: boolean } } }
+    ReleaseDetail: { type: object, properties: { release: { $ref: '#/components/schemas/Release' }, items: { type: array, items: { $ref: '#/components/schemas/ReleaseItem' } }, affected_clients: { type: array, items: { $ref: '#/components/schemas/Impact' } }, handoff_summary: { type: object, additionalProperties: { type: integer, format: int64 } } } }
+    Handoff: { type: object, properties: { id: { $ref: '#/components/schemas/UUID' }, release_id: { $ref: '#/components/schemas/UUID' }, client_id: { $ref: '#/components/schemas/UUID' }, ops_owner_id: { $ref: '#/components/schemas/UUID' }, status: { type: string }, requires_follow_up: { type: boolean }, acknowledged_at: { $ref: '#/components/schemas/DateTime', nullable: true }, completed_at: { $ref: '#/components/schemas/DateTime', nullable: true } } }
+    FollowUp: { type: object, properties: { id: { $ref: '#/components/schemas/UUID' }, client_id: { $ref: '#/components/schemas/UUID' }, handoff_id: { $ref: '#/components/schemas/UUID', nullable: true }, owner_id: { $ref: '#/components/schemas/UUID' }, type: { type: string, enum: [ISSUE_RESOLUTION, RELEASE_UPDATE, TRAINING, RELATIONSHIP_CHECK, OTHER] }, reason: { type: string }, status: { type: string }, due_at: { $ref: '#/components/schemas/DateTime' }, result: { type: string, nullable: true } } }
+    LoginRequest: { type: object, required: [email, password], properties: { email: { type: string, format: email }, password: { type: string, minLength: 8, format: password } } }
+    CreateUserRequest: { type: object, required: [name, email, password, role_ids], properties: { name: { type: string, maxLength: 255 }, email: { type: string, format: email }, password: { type: string, format: password, minLength: 12 }, role_ids: { type: array, minItems: 1, items: { $ref: '#/components/schemas/UUID' } } } }
+    UpdateUserRequest: { type: object, minProperties: 1, properties: { name: { type: string, maxLength: 255 }, status: { type: string, enum: [ACTIVE, INACTIVE] } } }
+    RoleIDsRequest: { type: object, required: [role_ids], properties: { role_ids: { type: array, minItems: 1, items: { $ref: '#/components/schemas/UUID' } } } }
+    RoleRequest: { type: object, properties: { name: { type: string, pattern: '^[A-Z][A-Z0-9_]{1,99}$' }, description: { type: string, nullable: true }, permission_ids: { type: array, items: { $ref: '#/components/schemas/UUID' } } } }
+    CreateClientRequest: { type: object, required: [code, name, type], properties: { code: { type: string }, name: { type: string }, type: { $ref: '#/components/schemas/ClientType' }, status: { type: string, enum: [ACTIVE, ONBOARDING, INACTIVE] }, province: { type: string }, city: { type: string }, address: { type: string }, primary_owner_id: { $ref: '#/components/schemas/UUID' } } }
+    UpdateClientRequest: { allOf: [{ $ref: '#/components/schemas/VersionRequest' }, { type: object, properties: { name: { type: string }, type: { $ref: '#/components/schemas/ClientType' }, status: { type: string, enum: [ACTIVE, ONBOARDING, INACTIVE] }, province: { type: string, nullable: true }, city: { type: string, nullable: true }, address: { type: string, nullable: true } } }] }
+    VersionRequest: { type: object, required: [version], properties: { version: { type: integer, minimum: 1 } } }
+    AddOwnerRequest: { type: object, required: [user_id, owner_type], properties: { user_id: { $ref: '#/components/schemas/UUID' }, owner_type: { type: string, enum: [PRIMARY, SECONDARY, TECHNICAL] } } }
+    ChangePrimaryOwnerRequest: { type: object, required: [new_owner_id], properties: { new_owner_id: { $ref: '#/components/schemas/UUID' } } }
+    CreateContactRequest: { type: object, required: [name], properties: { name: { type: string }, position: { type: string, nullable: true }, email: { type: string, nullable: true }, phone: { type: string, nullable: true }, is_primary: { type: boolean } } }
+    CreateIssueRequest: { type: object, required: [client_id, title, description], properties: { client_id: { $ref: '#/components/schemas/UUID' }, title: { type: string }, description: { type: string }, category: { type: string, nullable: true }, severity: { $ref: '#/components/schemas/Severity' } } }
+    UpdateIssueRequest: { allOf: [{ $ref: '#/components/schemas/VersionRequest' }, { type: object, properties: { title: { type: string, nullable: true }, description: { type: string, nullable: true }, category: { type: string, nullable: true }, severity: { $ref: '#/components/schemas/Severity' } } }] }
+    IssueActionRequest: { allOf: [{ $ref: '#/components/schemas/VersionRequest' }, { type: object, properties: { reason: { type: string }, assignee_id: { $ref: '#/components/schemas/UUID' }, release_id: { $ref: '#/components/schemas/UUID' }, resolution_summary: { type: string }, category: { type: string }, severity: { $ref: '#/components/schemas/Severity' } } }] }
+    CreateReleaseRequest: { type: object, required: [version, title, summary], properties: { version: { type: string }, title: { type: string }, summary: { type: string } } }
+    DocumentationRequest: { type: object, required: [title, summary, content], properties: { title: { type: string }, summary: { type: string }, content: { type: string } } }
+    CreateReleaseItemRequest: { type: object, required: [type, title, description], properties: { type: { type: string, enum: [FEATURE, BUG_FIX, IMPROVEMENT, SECURITY] }, title: { type: string }, description: { type: string }, issue_ids: { type: array, items: { $ref: '#/components/schemas/UUID' } } } }
+    SetImpactsRequest: { type: object, properties: { clients: { type: array, items: { $ref: '#/components/schemas/Impact' } } } }
+    CreateFollowUpRequest: { type: object, required: [client_id, owner_id, type, reason, due_at], properties: { client_id: { $ref: '#/components/schemas/UUID' }, handoff_id: { $ref: '#/components/schemas/UUID', nullable: true }, owner_id: { $ref: '#/components/schemas/UUID' }, type: { type: string, enum: [ISSUE_RESOLUTION, RELEASE_UPDATE, TRAINING, RELATIONSHIP_CHECK, OTHER] }, reason: { type: string }, due_at: { $ref: '#/components/schemas/DateTime' } } }
+    CompleteFollowUpRequest: { type: object, required: [result], properties: { result: { type: string } } }
+    Meta: { type: object, required: [page, limit, total, total_pages], properties: { page: { type: integer }, limit: { type: integer }, total: { type: integer, format: int64 }, total_pages: { type: integer } } }
+    Error: { type: object, required: [success, error, message], properties: { success: { type: boolean, enum: [false] }, error: { type: object, required: [code], properties: { code: { type: string }, details: {} } }, message: { type: string } } }
+  responses:
+    CSRFIssued: { description: CSRF cookie issued, content: { application/json: { schema: { $ref: '#/components/schemas/EmptyEnvelope' } } } }
+    LoginSuccess: { description: Login successful; auth cookies issued, content: { application/json: { schema: { $ref: '#/components/schemas/UserEnvelope' } } } }
+    RefreshSuccess: { description: Session refreshed; auth cookies rotated, content: { application/json: { schema: { $ref: '#/components/schemas/EmptyEnvelope' } } } }
+    UserSuccess: { description: Current user, content: { application/json: { schema: { $ref: '#/components/schemas/UserEnvelope' } } } }
+    UserListSuccess: { description: User page, content: { application/json: { schema: { $ref: '#/components/schemas/UserListEnvelope' } } } }
+    RoleSuccess: { description: Role, content: { application/json: { schema: { $ref: '#/components/schemas/RoleEnvelope' } } } }
+    RoleListSuccess: { description: Roles, content: { application/json: { schema: { $ref: '#/components/schemas/RoleListEnvelope' } } } }
+    PermissionListSuccess: { description: Permissions, content: { application/json: { schema: { $ref: '#/components/schemas/PermissionListEnvelope' } } } }
+    ClientSuccess: { description: Client, content: { application/json: { schema: { $ref: '#/components/schemas/ClientEnvelope' } } } }
+    ClientCreated: { description: Client created, content: { application/json: { schema: { $ref: '#/components/schemas/ClientEnvelope' } } } }
+    ClientUpdated: { description: Client updated, content: { application/json: { schema: { $ref: '#/components/schemas/ClientEnvelope' } } } }
+    ClientListSuccess: { description: Client page, content: { application/json: { schema: { $ref: '#/components/schemas/ClientListEnvelope' } } } }
+    OwnerListSuccess: { description: Owners, content: { application/json: { schema: { $ref: '#/components/schemas/OwnerListEnvelope' } } } }
+    ContactListSuccess: { description: Contacts, content: { application/json: { schema: { $ref: '#/components/schemas/ContactListEnvelope' } } } }
+    ContactCreated: { description: Contact created, content: { application/json: { schema: { $ref: '#/components/schemas/ContactEnvelope' } } } }
+    IssueSuccess: { description: Issue, content: { application/json: { schema: { $ref: '#/components/schemas/IssueEnvelope' } } } }
+    IssueCreated: { description: Issue created, content: { application/json: { schema: { $ref: '#/components/schemas/IssueEnvelope' } } } }
+    IssueUpdated: { description: Issue updated, content: { application/json: { schema: { $ref: '#/components/schemas/IssueEnvelope' } } } }
+    IssueListSuccess: { description: Issue page, content: { application/json: { schema: { $ref: '#/components/schemas/IssueListEnvelope' } } } }
+    HistoryListSuccess: { description: Status history, content: { application/json: { schema: { $ref: '#/components/schemas/HistoryListEnvelope' } } } }
+    ReleaseSuccess: { description: Release, content: { application/json: { schema: { $ref: '#/components/schemas/ReleaseEnvelope' } } } }
+    ReleaseCreated: { description: Release created, content: { application/json: { schema: { $ref: '#/components/schemas/ReleaseEnvelope' } } } }
+    ReleaseListSuccess: { description: Releases, content: { application/json: { schema: { $ref: '#/components/schemas/ReleaseListEnvelope' } } } }
+    ReleaseDetailSuccess: { description: Release detail, content: { application/json: { schema: { $ref: '#/components/schemas/ReleaseDetailEnvelope' } } } }
+    ReleaseItemCreated: { description: Release item created, content: { application/json: { schema: { $ref: '#/components/schemas/ReleaseItemEnvelope' } } } }
+    ReleasePublished: { description: Release published, content: { application/json: { schema: { $ref: '#/components/schemas/PublishEnvelope' } } } }
+    HandoffSuccess: { description: Handoff, content: { application/json: { schema: { $ref: '#/components/schemas/HandoffEnvelope' } } } }
+    HandoffListSuccess: { description: Handoffs, content: { application/json: { schema: { $ref: '#/components/schemas/HandoffListEnvelope' } } } }
+    FollowUpSuccess: { description: Follow-up, content: { application/json: { schema: { $ref: '#/components/schemas/FollowUpEnvelope' } } } }
+    FollowUpCreated: { description: Follow-up created, content: { application/json: { schema: { $ref: '#/components/schemas/FollowUpEnvelope' } } } }
+    FollowUpListSuccess: { description: Follow-ups, content: { application/json: { schema: { $ref: '#/components/schemas/FollowUpListEnvelope' } } } }
+    EmptySuccess: { description: Success, content: { application/json: { schema: { $ref: '#/components/schemas/EmptyEnvelope' } } } }
+    EmptyCreated: { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/EmptyEnvelope' } } } }
+    AuthenticationError: { description: Authentication required or expired, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    InvalidCredentials: { description: Invalid credentials, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    InvalidRefreshToken: { description: Invalid or expired refresh token; cookies cleared, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    PermissionError: { description: Permission denied, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    AccessError: { description: Resource access denied, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    CSRFError: { description: CSRF validation failed, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    PermissionOrCSRFError: { description: Permission denied or CSRF validation failed, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    ValidationError: { description: Validation failed, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    ResourceNotFound: { description: Resource not found, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    ClientNotFound: { description: Client not found, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    IssueNotFound: { description: Issue not found, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    ReleaseNotFound: { description: Release not found, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    ConflictError: { description: Resource conflict, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    VersionConflict: { description: Client version conflict, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    IssueConflict: { description: 'Version conflict, invalid transition, missing assignee/release, or incomplete operational closure.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    ReleaseConflict: { description: 'Invalid transition, no release item, or ownerless affected client.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    HandoffConflict: { description: 'Invalid state, missing documentation, or incomplete follow-up.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    OperationConflict: { description: Invalid state, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    InternalError: { description: Unexpected internal error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  schemas:
+    <<: *core_schemas
+    EmptyEnvelope: { type: object, required: [success, data, message], properties: { success: { type: boolean, enum: [true] }, data: { type: object, nullable: true }, message: { type: string } } }
+    UserEnvelope: { type: object, properties: { success: { type: boolean, enum: [true] }, data: { $ref: '#/components/schemas/User' }, message: { type: string } } }
+    UserListEnvelope: { allOf: [{ $ref: '#/components/schemas/PaginatedEnvelope' }, { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/ManagedUser' } } } }] }
+    RoleEnvelope: { type: object, properties: { success: { type: boolean, enum: [true] }, data: { $ref: '#/components/schemas/Role' }, message: { type: string } } }
+    RoleListEnvelope: { type: object, properties: { success: { type: boolean, enum: [true] }, data: { type: array, items: { $ref: '#/components/schemas/Role' } }, message: { type: string } } }
+    PermissionListEnvelope: { type: object, properties: { success: { type: boolean, enum: [true] }, data: { type: array, items: { $ref: '#/components/schemas/Permission' } }, message: { type: string } } }
+    ClientEnvelope: { type: object, properties: { success: { type: boolean, enum: [true] }, data: { $ref: '#/components/schemas/Client' }, message: { type: string } } }
+    OwnerListEnvelope: { type: object, properties: { success: { type: boolean, enum: [true] }, data: { type: array, items: { $ref: '#/components/schemas/Owner' } }, message: { type: string } } }
+    ContactEnvelope: { type: object, properties: { success: { type: boolean, enum: [true] }, data: { $ref: '#/components/schemas/Contact' }, message: { type: string } } }
+    ContactListEnvelope: { type: object, properties: { success: { type: boolean, enum: [true] }, data: { type: array, items: { $ref: '#/components/schemas/Contact' } }, message: { type: string } } }
+    IssueEnvelope: { type: object, properties: { success: { type: boolean, enum: [true] }, data: { $ref: '#/components/schemas/Issue' }, message: { type: string } } }
+    HistoryListEnvelope: { type: object, properties: { success: { type: boolean, enum: [true] }, data: { type: array, items: { $ref: '#/components/schemas/History' } }, message: { type: string } } }
+    ReleaseEnvelope: { type: object, properties: { success: { type: boolean, enum: [true] }, data: { $ref: '#/components/schemas/Release' }, message: { type: string } } }
+    ReleaseListEnvelope: { type: object, properties: { success: { type: boolean, enum: [true] }, data: { type: array, items: { $ref: '#/components/schemas/Release' } }, message: { type: string } } }
+    ReleaseDetailEnvelope: { type: object, properties: { success: { type: boolean, enum: [true] }, data: { $ref: '#/components/schemas/ReleaseDetail' }, message: { type: string } } }
+    ReleaseItemEnvelope: { type: object, properties: { success: { type: boolean, enum: [true] }, data: { $ref: '#/components/schemas/ReleaseItem' }, message: { type: string } } }
+    PublishEnvelope: { type: object, properties: { success: { type: boolean, enum: [true] }, data: { type: object, properties: { release_id: { $ref: '#/components/schemas/UUID' }, handoffs_created: { type: integer } } }, message: { type: string } } }
+    HandoffEnvelope: { type: object, properties: { success: { type: boolean, enum: [true] }, data: { $ref: '#/components/schemas/Handoff' }, message: { type: string } } }
+    HandoffListEnvelope: { type: object, properties: { success: { type: boolean, enum: [true] }, data: { type: array, items: { $ref: '#/components/schemas/Handoff' } }, message: { type: string } } }
+    FollowUpEnvelope: { type: object, properties: { success: { type: boolean, enum: [true] }, data: { $ref: '#/components/schemas/FollowUp' }, message: { type: string } } }
+    FollowUpListEnvelope: { type: object, properties: { success: { type: boolean, enum: [true] }, data: { type: array, items: { $ref: '#/components/schemas/FollowUp' } }, message: { type: string } } }
+    ClientListEnvelope: { allOf: [{ $ref: '#/components/schemas/PaginatedEnvelope' }, { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/Client' } } } }] }
+    IssueListEnvelope: { allOf: [{ $ref: '#/components/schemas/PaginatedEnvelope' }, { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/Issue' } } } }] }
+    PaginatedEnvelope: { type: object, properties: { success: { type: boolean, enum: [true] }, data: { type: array }, message: { type: string }, meta: { $ref: '#/components/schemas/Meta' } } }

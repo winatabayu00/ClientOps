@@ -28,7 +28,10 @@ This README is a living document and will be updated as the implementation progr
 cp .env.example .env
 make up
 make migrate-up
+make seed
 ```
+
+`make seed` requires `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `.env`; `ADMIN_NAME` is optional. It safely upserts documented roles and permissions, grants all permissions to `SUPER_ADMIN`, and creates or updates that administrator with an Argon2id PHC password hash.
 
 API health: `http://localhost:8080/health`.
 
