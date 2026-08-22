@@ -189,11 +189,19 @@ release has affected client
 release has no affected client
 → no handoff
 
+release documentation missing or not PUBLISHED
+→ handoff cannot complete
+
+published release documentation exists
+and no follow-up is required
+→ handoff can complete
+
 requires follow-up = true
 and follow-up incomplete
 → handoff cannot complete
 
-follow-up completed
+published release documentation exists
+and follow-up completed
 → handoff can complete
 ```
 

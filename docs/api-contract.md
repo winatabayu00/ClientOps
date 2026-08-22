@@ -1611,6 +1611,8 @@ POST /api/v1/handoffs/:id/complete
 Backend checks:
 
 ```text
+published documentation related to the handoff release must exist
+
 if requires_follow_up = true
 then completed follow-up must exist
 ```

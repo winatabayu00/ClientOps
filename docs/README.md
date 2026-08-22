@@ -78,7 +78,8 @@ Use this table to find every layer required for a capability. `P0` is the submis
 | Audit for critical mutations | P0 | M2-M6 | Traceability rules | Audit records | Included in mutations | UI deferred | Actor, action, resource, before/after, request ID |
 | Client timeline | P1 | M7 | Visibility rules | Client activities | Timeline endpoint | Client timeline | Chronology and resource links |
 | Feature demand | P1 | M7 | One demand, many clients | Feature requests/client links | Feature request endpoints | Demand list/detail | Count, oldest request, requesting clients |
-| Living documentation | P1 | M7 | Documentation lifecycle | Documents/links | Documentation endpoints | Documentation list/detail | Lifecycle, metadata, related resources |
+| Required release documentation | P0 | M6 | Documentation closure rule | Documents/release links | Minimum create, publish, relate endpoints | Release/handoff documentation state | Missing/draft documentation blocks closure |
+| Living documentation | P1 | M7 | Documentation lifecycle | Freshness metadata | Full documentation endpoints | Documentation list/detail | Lifecycle, metadata, search, freshness |
 | Notifications and worker | P1 | M7 | Notification triggers | Jobs/notifications | Notification endpoints | Notification states | Commit before enqueue; retry safety |
 | Attachments | P2 | M9 | Authorized file access | Metadata only | Upload/download | Attachment UI | MIME, size, authorization, object key safety |
 | Client health | P2 | M9 | Explainable score | Health inputs/history | Health endpoint | Health explanation | Deterministic and explainable calculation |
@@ -172,7 +173,7 @@ These conflicts are known. Resolve each relevant item in its owning document bef
 |---|---|---|
 | Release publication | Whether `DRAFT` may publish directly or only `READY` may publish | Business requirements, then API/tests |
 | Release impact persistence | Whether impacts are created before publish or generated during publish | Business requirements, then database/API |
-| Documentation closure gate | Whether documentation is mandatory for every handoff or only selected release types | Business requirements |
+| Documentation closure gate | Resolved: every handoff requires at least one PUBLISHED documentation linked to its release before completion | Business requirements |
 | Product MVP versus submission scope | Product vision includes capabilities classified P1/P2 by delivery plan | Product scope and milestones |
 | Assessment score | Listed categories total 95 while text states 100 | Upstream assessment; document only, do not alter silently |
 

@@ -1071,6 +1071,25 @@ product_feature_id  UUID FK
 documentation_id    UUID FK
 ```
 
+## 26.1 release_documentations
+
+```text
+release_documentations
+──────────────────────────────────
+release_id            UUID FK
+documentation_id      UUID FK
+```
+
+Constraint:
+
+```text
+PRIMARY KEY(release_id, documentation_id)
+```
+
+Operational closure requires at least one related documentation with status
+`PUBLISHED`. This cross-table rule is enforced transactionally by the handoff
+service because a database constraint cannot safely express it.
+
 ---
 
 # 27. Release Domain

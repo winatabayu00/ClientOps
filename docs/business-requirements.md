@@ -1003,6 +1003,11 @@ Required client follow-up completed ✓
 
 Ini merupakan core differentiation ClientOps.
 
+`Documentation available` berarti minimal satu documentation berstatus
+`PUBLISHED` terhubung ke release yang menghasilkan handoff. Setiap handoff,
+termasuk yang tidak membutuhkan client contact, tidak dapat masuk `COMPLETED`
+sebelum syarat ini terpenuhi.
+
 ---
 
 # 24. Documentation Lifecycle
@@ -1626,6 +1631,9 @@ Published documentation harus memiliki author dan review metadata.
 
 RULE-011
 Critical state changes menghasilkan audit event.
+
+RULE-012
+Setiap handoff wajib memiliki published release documentation sebelum operational closure.
 
 RULE-012
 Client health score harus explainable.

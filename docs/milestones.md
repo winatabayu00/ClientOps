@@ -1064,6 +1064,9 @@ Core:
 Business rule:
 
 ```text
+handoff cannot complete
+until at least one PUBLISHED documentation is linked to its release
+
 if handoff.requires_follow_up == true
 
 handoff cannot complete
