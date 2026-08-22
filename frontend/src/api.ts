@@ -31,6 +31,8 @@ export const get = <T>(url: string) => api.get<Envelope<T>>(url).then(r => r.dat
 export const getPage = <T>(url: string) => api.get<Envelope<T>>(url).then(r => r.data)
 export const post = <T>(url: string, data?: unknown) => api.post<Envelope<T>>(url, data).then(r => r.data.data)
 export const patch = <T>(url: string, data?: unknown) => api.patch<Envelope<T>>(url, data).then(r => r.data.data)
+export const put = <T>(url: string, data?: unknown) => api.put<Envelope<T>>(url, data).then(r => r.data.data)
+export const del = (url: string) => api.delete(url)
 export const auth = {
   me: () => get<User>('/auth/me'),
   login: (email: string, password: string) => post<User>('/auth/login', { email, password }),
