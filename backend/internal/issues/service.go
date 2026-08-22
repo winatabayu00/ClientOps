@@ -63,9 +63,16 @@ type TransitionInput struct {
 	Version                                                              int
 	Reason, AssigneeID, ReleaseID, ResolutionSummary, Category, Severity *string
 }
-type Service struct{ db *gorm.DB }
+type Service struct {
+	db               *gorm.DB
+	assignmentNotify func(userID, kind, title, message, entityType, entityID string) error
+}
 
 func NewService(db *gorm.DB) *Service { return &Service{db: db} }
+
+func (s *Service) SetAssignmentNotifier(notify func(string, string, string, string, string, string) error) {
+	s.assignmentNotify = notify
+}
 
 func (s *Service) Create(in CreateInput, actorID, requestID string) (Issue, error) {
 	var out Issue
@@ -156,13 +163,18 @@ func (s *Service) Update(id string, in UpdateInput, actorID, requestID string) (
 	return out, err
 }
 func (s *Service) Assign(id string, in TransitionInput, actorID, requestID string) (Issue, error) {
-	return s.mutate(id, in, actorID, requestID, "ISSUE_ASSIGNED", "", func(_ *gorm.DB, fields map[string]interface{}, current Issue) error {
+	out, err := s.mutate(id, in, actorID, requestID, "ISSUE_ASSIGNED", "", func(_ *gorm.DB, fields map[string]interface{}, current Issue) error {
 		if in.AssigneeID == nil {
 			return ErrAssigneeRequired
 		}
 		fields["assignee_id"] = *in.AssigneeID
 		return nil
 	})
+	if err == nil && s.assignmentNotify != nil {
+		// The issue transaction has committed; notification failure cannot undo the assignment.
+		_ = s.assignmentNotify(*out.AssigneeID, "ISSUE_ASSIGNED", "Issue assigned", out.IssueNumber+": "+out.Title, "issue", out.ID)
+	}
+	return out, err
 }
 func (s *Service) Transition(id, to string, in TransitionInput, actorID, requestID string) (Issue, error) {
 	return s.mutate(id, in, actorID, requestID, "ISSUE_STATUS_CHANGED", to, func(tx *gorm.DB, fields map[string]interface{}, current Issue) error {

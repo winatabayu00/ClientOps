@@ -13,6 +13,7 @@ import (
 	"github.com/winatabayu00/school-success-platform/backend/internal/feature_requests"
 	"github.com/winatabayu00/school-success-platform/backend/internal/health"
 	"github.com/winatabayu00/school-success-platform/backend/internal/issues"
+	"github.com/winatabayu00/school-success-platform/backend/internal/notifications"
 	"github.com/winatabayu00/school-success-platform/backend/internal/operations"
 	"github.com/winatabayu00/school-success-platform/backend/internal/releases"
 	"github.com/winatabayu00/school-success-platform/backend/internal/users"
@@ -86,7 +87,11 @@ func main() {
 	featureRequestRoutes.POST("/:id/mark-released", auth.Require("feature_request.update"), featureRequestHandler.Action("RELEASED"))
 	featureRequestRoutes.POST("/:id/mark-delivered", auth.Require("feature_request.close"), featureRequestHandler.Action("DELIVERED"))
 	featureRequestRoutes.POST("/:id/mark-duplicate", auth.Require("feature_request.merge"), featureRequestHandler.Action("DUPLICATE"))
-	issueHandler := issues.NewHandler(issues.NewService(db))
+	notificationService := notifications.NewService(db)
+	notificationHandler := notifications.NewHandler(notificationService)
+	issueService := issues.NewService(db)
+	issueService.SetAssignmentNotifier(notificationService.Create)
+	issueHandler := issues.NewHandler(issueService)
 	issueRoutes := apiV1.Group("/issues", authHandler.Authenticate(), authHandler.CSRFProtection())
 	issueRoutes.GET("", auth.Require("issue.read"), issueHandler.List)
 	issueRoutes.POST("", auth.Require("issue.create"), issueHandler.Create)
@@ -103,6 +108,11 @@ func main() {
 	issueRoutes.POST("/:id/close", auth.Require("issue.close"), issueHandler.Close)
 	issueRoutes.POST("/:id/reopen", auth.Require("issue.reopen"), issueHandler.Reopen)
 	issueRoutes.GET("/:id/history", auth.Require("issue.read"), issueHandler.History)
+	notificationRoutes := apiV1.Group("/notifications", authHandler.Authenticate(), authHandler.CSRFProtection())
+	notificationRoutes.GET("", notificationHandler.List)
+	notificationRoutes.GET("/unread-count", notificationHandler.UnreadCount)
+	notificationRoutes.POST("/:id/read", notificationHandler.MarkRead)
+	notificationRoutes.POST("/read-all", notificationHandler.MarkAllRead)
 	releaseHandler := releases.NewHandler(releases.NewService(db))
 	releaseRoutes := apiV1.Group("/releases", authHandler.Authenticate(), authHandler.CSRFProtection())
 	releaseRoutes.GET("", auth.Require("release.read"), releaseHandler.List)

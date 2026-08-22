@@ -45,6 +45,7 @@ type Overview = {
   follow_ups?: { pending?: unknown; overdue?: unknown };
   handoffs?: { pending?: unknown };
 };
+type Notification = { id: string; title: string; message: string; read_at: string | null; created_at: string; entity_type?: string; entity_id?: string };
 const client = new QueryClient({
   defaultOptions: { queries: { retry: false } },
 });
@@ -123,6 +124,7 @@ function Shell() {
       nav("/login");
     },
   });
+  const unread = useQuery<{ count: number }>({ queryKey: ["notifications", "unread-count"], queryFn: () => get("/notifications/unread-count") });
   if (me.isPending)
     return (
       <main>
@@ -160,6 +162,7 @@ function Shell() {
             ))}
         </nav>
         <div className="account">
+          <NavLink to="/notifications" aria-label="Notifications">Bell{unread.data?.count ? ` (${unread.data.count})` : ""}</NavLink>
           <span>{me.data.name}</span>
           <button onClick={() => logout.mutate()} disabled={logout.isPending}>
             Sign out
@@ -171,6 +174,15 @@ function Shell() {
       </main>
     </div>
   );
+}
+function Notifications() {
+  const queryClient = useQueryClient();
+  const query = useQuery<Notification[]>({ queryKey: ["notifications"], queryFn: () => get<Notification[]>("/notifications") });
+  const markRead = useMutation({ mutationFn: (id: string) => post(`/notifications/${id}/read`), onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }) });
+  const markAll = useMutation({ mutationFn: () => post("/notifications/read-all"), onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }) });
+  if (query.isPending) return <section><p role="status">Loading notifications...</p></section>;
+  if (query.isError) return <section><h1>Notifications</h1><p role="alert">{message(query.error)}</p></section>;
+  return <section><div className="title"><h1>Notifications</h1><button onClick={() => markAll.mutate()} disabled={markAll.isPending}>Mark all read</button></div>{query.data?.length ? <ul className="records">{query.data.map((n) => <li key={n.id}><strong>{n.title}</strong><small>{n.message}</small>{!n.read_at && <button onClick={() => markRead.mutate(n.id)} disabled={markRead.isPending}>Mark read</button>}</li>)}</ul> : <p>No notifications.</p>}</section>;
 }
 function Dashboard() {
   const query = useQuery<Overview>({
@@ -3226,6 +3238,7 @@ export default function App() {
           <Route path="/follow-ups" element={<FollowUps />} />
           <Route path="/documentation" element={<Documentation />} />
           <Route path="/documentation/:id" element={<DocumentationDetail />} />
+          <Route path="/notifications" element={<Notifications />} />
           <Route path="/management" element={<Management />} />
           <Route path="/management/users" element={<UsersManagement />} />
           <Route

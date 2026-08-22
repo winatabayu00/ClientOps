@@ -20,7 +20,34 @@ tags:
   - name: Roles
   - name: Permissions
   - name: Dashboard
+  - name: Notifications
 paths:
+  /notifications:
+    get:
+      tags: [Notifications]
+      summary: List current user's notifications
+      description: Filters: `read` (`true` or `false`), `page`, `limit` (maximum 100).
+      security: [{ AccessCookie: [] }]
+      responses: { '200': { $ref: '#/components/responses/NotificationListSuccess' }, '401': { $ref: '#/components/responses/AuthenticationError' } }
+  /notifications/unread-count:
+    get:
+      tags: [Notifications]
+      summary: Get current user's unread notification count
+      security: [{ AccessCookie: [] }]
+      responses: { '200': { $ref: '#/components/responses/UnreadNotificationCountSuccess' }, '401': { $ref: '#/components/responses/AuthenticationError' } }
+  /notifications/{id}/read:
+    post:
+      tags: [Notifications]
+      summary: Mark current user's notification as read
+      security: [{ AccessCookie: [], CSRFToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      responses: { '200': { $ref: '#/components/responses/EmptySuccess' }, '403': { $ref: '#/components/responses/PermissionOrCSRFError' }, '404': { $ref: '#/components/responses/ResourceNotFound' } }
+  /notifications/read-all:
+    post:
+      tags: [Notifications]
+      summary: Mark all current user's notifications as read
+      security: [{ AccessCookie: [], CSRFToken: [] }]
+      responses: { '200': { $ref: '#/components/responses/EmptySuccess' }, '403': { $ref: '#/components/responses/PermissionOrCSRFError' } }
   /users:
     get:
       tags: [Users]
@@ -507,6 +534,7 @@ components:
     Owner: { type: object, properties: { id: { $ref: '#/components/schemas/UUID' }, user_id: { $ref: '#/components/schemas/UUID' }, owner_type: { type: string, enum: [PRIMARY, SECONDARY, TECHNICAL] }, assigned_at: { $ref: '#/components/schemas/DateTime' }, unassigned_at: { $ref: '#/components/schemas/DateTime', nullable: true } } }
     Contact: { type: object, properties: { id: { $ref: '#/components/schemas/UUID' }, client_id: { $ref: '#/components/schemas/UUID' }, name: { type: string }, position: { type: string, nullable: true }, email: { type: string, nullable: true }, phone: { type: string, nullable: true }, is_primary: { type: boolean } } }
     Issue: { type: object, properties: { id: { $ref: '#/components/schemas/UUID' }, issue_number: { type: string }, client_id: { $ref: '#/components/schemas/UUID' }, title: { type: string }, description: { type: string }, category: { type: string }, severity: { $ref: '#/components/schemas/Severity' }, status: { $ref: '#/components/schemas/IssueStatus' }, reporter_id: { $ref: '#/components/schemas/UUID' }, assignee_id: { $ref: '#/components/schemas/UUID', nullable: true }, release_id: { $ref: '#/components/schemas/UUID', nullable: true }, resolution_summary: { type: string, nullable: true }, version: { type: integer }, reported_at: { $ref: '#/components/schemas/DateTime' }, created_at: { $ref: '#/components/schemas/DateTime' }, updated_at: { $ref: '#/components/schemas/DateTime' }, triaged_at: { $ref: '#/components/schemas/DateTime', nullable: true }, resolved_at: { $ref: '#/components/schemas/DateTime', nullable: true }, closed_at: { $ref: '#/components/schemas/DateTime', nullable: true } } }
+    Notification: { type: object, properties: { id: { $ref: '#/components/schemas/UUID' }, type: { type: string }, title: { type: string }, message: { type: string }, entity_type: { type: string, nullable: true }, entity_id: { $ref: '#/components/schemas/UUID', nullable: true }, read_at: { $ref: '#/components/schemas/DateTime', nullable: true }, created_at: { $ref: '#/components/schemas/DateTime' } } }
     History: { type: object, properties: { id: { $ref: '#/components/schemas/UUID' }, issue_id: { $ref: '#/components/schemas/UUID' }, from_status: { type: string }, to_status: { type: string }, changed_by: { $ref: '#/components/schemas/UUID' }, reason: { type: string, nullable: true }, created_at: { $ref: '#/components/schemas/DateTime' } } }
     Release: { type: object, properties: { id: { $ref: '#/components/schemas/UUID' }, version: { type: string }, title: { type: string }, summary: { type: string }, status: { type: string }, release_date: { $ref: '#/components/schemas/DateTime', nullable: true }, created_by: { $ref: '#/components/schemas/UUID' }, published_by: { $ref: '#/components/schemas/UUID', nullable: true }, created_at: { $ref: '#/components/schemas/DateTime' }, updated_at: { $ref: '#/components/schemas/DateTime' } } }
     ReleaseItem: { type: object, properties: { id: { $ref: '#/components/schemas/UUID' }, release_id: { $ref: '#/components/schemas/UUID' }, type: { type: string, enum: [FEATURE, BUG_FIX, IMPROVEMENT, SECURITY] }, title: { type: string }, description: { type: string } } }
@@ -568,6 +596,8 @@ components:
     FollowUpSuccess: { description: Follow-up, content: { application/json: { schema: { $ref: '#/components/schemas/FollowUpEnvelope' } } } }
     FollowUpCreated: { description: Follow-up created, content: { application/json: { schema: { $ref: '#/components/schemas/FollowUpEnvelope' } } } }
     FollowUpListSuccess: { description: Follow-ups, content: { application/json: { schema: { $ref: '#/components/schemas/FollowUpListEnvelope' } } } }
+    NotificationListSuccess: { description: Notifications page, content: { application/json: { schema: { $ref: '#/components/schemas/NotificationListEnvelope' } } } }
+    UnreadNotificationCountSuccess: { description: Unread notification count, content: { application/json: { schema: { $ref: '#/components/schemas/UnreadNotificationCountEnvelope' } } } }
     EmptySuccess: { description: Success, content: { application/json: { schema: { $ref: '#/components/schemas/EmptyEnvelope' } } } }
     EmptyCreated: { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/EmptyEnvelope' } } } }
     AuthenticationError: { description: Authentication required or expired, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
@@ -612,6 +642,8 @@ components:
     HandoffListEnvelope: { type: object, properties: { success: { type: boolean, enum: [true] }, data: { type: array, items: { $ref: '#/components/schemas/Handoff' } }, message: { type: string } } }
     FollowUpEnvelope: { type: object, properties: { success: { type: boolean, enum: [true] }, data: { $ref: '#/components/schemas/FollowUp' }, message: { type: string } } }
     FollowUpListEnvelope: { type: object, properties: { success: { type: boolean, enum: [true] }, data: { type: array, items: { $ref: '#/components/schemas/FollowUp' } }, message: { type: string } } }
+    NotificationListEnvelope: { allOf: [{ $ref: '#/components/schemas/PaginatedEnvelope' }, { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/Notification' } } } }] }
+    UnreadNotificationCountEnvelope: { type: object, properties: { success: { type: boolean, enum: [true] }, data: { type: object, properties: { count: { type: integer, format: int64 } } }, message: { type: string } } }
     ClientListEnvelope: { allOf: [{ $ref: '#/components/schemas/PaginatedEnvelope' }, { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/Client' } } } }] }
     IssueListEnvelope: { allOf: [{ $ref: '#/components/schemas/PaginatedEnvelope' }, { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/Issue' } } } }] }
     PaginatedEnvelope: { type: object, properties: { success: { type: boolean, enum: [true] }, data: { type: array }, message: { type: string }, meta: { $ref: '#/components/schemas/Meta' } } }
