@@ -1,5 +1,8 @@
 import { createRoot } from 'react-dom/client'
+import { initErrorShim } from './errorshim'
 import './styles.css'
+
+initErrorShim()
 
 function App() {
   return (
