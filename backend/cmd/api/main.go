@@ -20,8 +20,10 @@ import (
 	"github.com/winatabayu00/school-success-platform/backend/internal/operations"
 	"github.com/winatabayu00/school-success-platform/backend/internal/releases"
 	"github.com/winatabayu00/school-success-platform/backend/internal/users"
+	"github.com/winatabayu00/school-success-platform/backend/pkg/cache"
 	"github.com/winatabayu00/school-success-platform/backend/pkg/config"
 	"github.com/winatabayu00/school-success-platform/backend/pkg/database"
+	"github.com/winatabayu00/school-success-platform/backend/pkg/metrics"
 )
 
 func main() {
@@ -35,9 +37,11 @@ func main() {
 	}
 
 	router := gin.New()
-	router.Use(api.RequestIDMiddleware(), gin.Logger(), errorshim.Recovery())
+	caches := cache.New(cfg.RedisAddr)
+	router.Use(api.RequestIDMiddleware(), gin.Logger(), errorshim.Recovery(), api.DashboardCacheInvalidation(caches), func(c *gin.Context) { c.Next(); metrics.Record(c.Writer.Status()) })
 	router.GET("/health", health.Live)
 	router.GET("/ready", health.Ready(db))
+	router.GET("/metrics", gin.WrapF(metrics.Handler))
 	router.GET("/api/docs", func(c *gin.Context) {
 		c.Header("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline' https://unpkg.com; script-src 'self' https://unpkg.com")
 		c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(`<!doctype html><html><head><meta charset="utf-8"><title>ClientOps API</title><link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css"></head><body><div id="swagger-ui"></div><script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script><script>SwaggerUIBundle({url:"/api/docs/openapi.yaml",dom_id:"#swagger-ui"})</script></body></html>`))
@@ -88,7 +92,7 @@ func main() {
 	clientRoutes.POST("/:id/change-primary-owner", auth.Require("client.assign_owner"), clientHandler.ChangePrimaryOwner)
 	clientRoutes.GET("/:id/contacts", auth.Require("client.read"), clientHandler.Contacts)
 	clientRoutes.POST("/:id/contacts", auth.Require("client.update"), clientHandler.AddContact)
-	dashboardHandler := dashboard.NewHandler(dashboard.NewService(db))
+	dashboardHandler := dashboard.NewHandler(dashboard.NewService(db, caches))
 	apiV1.GET("/dashboard/overview", authHandler.Authenticate(), auth.Require("client.read"), dashboardHandler.Overview)
 	clientRoutes.GET("/:id/timeline", auth.Require("client.read"), dashboardHandler.Timeline)
 	featureRequestHandler := feature_requests.NewHandler(feature_requests.NewService(db))

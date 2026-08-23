@@ -1,9 +1,11 @@
 package dashboard
 
 import (
+	"encoding/json"
 	"errors"
 	"time"
 
+	"github.com/winatabayu00/school-success-platform/backend/pkg/cache"
 	"gorm.io/gorm"
 )
 
@@ -62,9 +64,18 @@ type TimelineEvent struct {
 	OccurredAt time.Time `json:"occurred_at"`
 }
 
-type Service struct{ db *gorm.DB }
+type Service struct {
+	db    *gorm.DB
+	cache *cache.Client
+}
 
-func NewService(db *gorm.DB) *Service { return &Service{db: db} }
+func NewService(db *gorm.DB, caches ...*cache.Client) *Service {
+	var c *cache.Client
+	if len(caches) > 0 {
+		c = caches[0]
+	}
+	return &Service{db: db, cache: c}
+}
 
 func scope(q *gorm.DB, alias, userID string, scoped bool) *gorm.DB {
 	if scoped {
@@ -75,6 +86,10 @@ func scope(q *gorm.DB, alias, userID string, scoped bool) *gorm.DB {
 
 func (s *Service) Overview(userID string, scoped bool) (Overview, error) {
 	var out Overview
+	key := "dashboard:" + s.cache.Version() + ":" + userID + ":" + map[bool]string{true: "scoped", false: "all"}[scoped]
+	if raw, ok := s.cache.Get(key); ok && json.Unmarshal([]byte(raw), &out) == nil {
+		return out, nil
+	}
 	clients := scope(s.db.Table("clients c").Where("c.archived_at IS NULL"), "c", userID, scoped)
 	if err := clients.Where("c.status = 'ACTIVE'").Count(&out.Clients.Active).Error; err != nil {
 		return out, err
@@ -122,6 +137,9 @@ func (s *Service) Overview(userID string, scoped bool) (Overview, error) {
  - 5 * (SELECT COUNT(*) FROM release_impacts ri JOIN releases r ON r.id = ri.release_id WHERE ri.client_id = c.id AND r.status = 'PUBLISHED' AND NOT EXISTS (SELECT 1 FROM release_documentations rd JOIN documentations d ON d.id = rd.documentation_id WHERE rd.release_id = ri.release_id AND d.status = 'PUBLISHED'))`
 	if err := health.Select("CASE WHEN (" + score + ") >= 80 THEN 'HEALTHY' WHEN (" + score + ") >= 60 THEN 'ATTENTION' ELSE 'AT_RISK' END AS name, COUNT(*) AS count").Group("name").Order("name").Scan(&out.ClientHealth).Error; err != nil {
 		return out, err
+	}
+	if raw, err := json.Marshal(out); err == nil {
+		s.cache.Set(key, string(raw), 30*time.Second)
 	}
 	return out, nil
 }
