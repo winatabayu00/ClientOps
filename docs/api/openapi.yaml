@@ -59,7 +59,7 @@ paths:
     get:
       tags: [Audit]
       summary: List audit logs
-      description: Requires `audit.read`. Filters: `actor_id`, `action`, `resource_type`, `resource_id`, `from`, `to` (RFC3339), `page`, `limit` (maximum 100).
+      description: "Requires `audit.read`. Filters: `actor_id`, `action`, `resource_type`, `resource_id`, `from`, `to` (RFC3339), `page`, `limit` (maximum 100)."
       security: [{ AccessCookie: [] }]
       responses: { '200': { description: Paginated audit records. }, '401': { $ref: '#/components/responses/AuthenticationError' }, '403': { $ref: '#/components/responses/PermissionError' }, '422': { $ref: '#/components/responses/ValidationError' } }
   /audit-logs/{id}:
@@ -103,7 +103,7 @@ paths:
     get:
       tags: [Notifications]
       summary: List current user's notifications
-      description: Filters: `read` (`true` or `false`), `page`, `limit` (maximum 100).
+      description: "Filters: `read` (`true` or `false`), `page`, `limit` (maximum 100)."
       security: [{ AccessCookie: [] }]
       responses: { '200': { $ref: '#/components/responses/NotificationListSuccess' }, '401': { $ref: '#/components/responses/AuthenticationError' } }
   /notifications/unread-count:
@@ -129,7 +129,7 @@ paths:
     get:
       tags: [Users]
       summary: List users
-      description: Requires `user.manage`. Filters: `search`, `status` (`ACTIVE` or `INACTIVE`), `role`, `page`, `limit`.
+      description: "Requires `user.manage`. Filters: `search`, `status` (`ACTIVE` or `INACTIVE`), `role`, `page`, `limit`."
       security: [{ AccessCookie: [] }]
       responses: { '200': { $ref: '#/components/responses/UserListSuccess' }, '401': { $ref: '#/components/responses/AuthenticationError' }, '403': { $ref: '#/components/responses/PermissionError' }, '422': { $ref: '#/components/responses/ValidationError' } }
     post:
@@ -276,7 +276,7 @@ paths:
       description: Requires `client.update`. `version` implements optimistic locking.
       security: [{ AccessCookie: [], CSRFToken: [] }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UpdateClientRequest' } } } }
-       responses: { '200': { $ref: '#/components/responses/ClientUpdated' }, '403': { $ref: '#/components/responses/PermissionOrCSRFError' }, '404': { $ref: '#/components/responses/ClientNotFound' }, '409': { $ref: '#/components/responses/VersionConflict' }, '422': { $ref: '#/components/responses/ValidationError' } }
+      responses: { '200': { $ref: '#/components/responses/ClientUpdated' }, '403': { $ref: '#/components/responses/PermissionOrCSRFError' }, '404': { $ref: '#/components/responses/ClientNotFound' }, '409': { $ref: '#/components/responses/VersionConflict' }, '422': { $ref: '#/components/responses/ValidationError' } }
   /clients/{id}/timeline:
     get:
       tags: [Clients]
@@ -284,12 +284,12 @@ paths:
       description: Requires `client.read`. Events are derived from persisted issue, release impact, handoff, and follow-up records. `OPS_STAFF` sees only assigned clients.
       security: [{ AccessCookie: [] }]
       parameters: [{ $ref: '#/components/parameters/ID' }, { $ref: '#/components/parameters/Page' }, { $ref: '#/components/parameters/Limit' }, { name: type, in: query, schema: { type: string, enum: [ISSUE_REPORTED, ISSUE_STATUS_CHANGED, RELEASE_IMPACT_IDENTIFIED, HANDOFF_CREATED, HANDOFF_ACKNOWLEDGED, HANDOFF_COMPLETED, FOLLOW_UP_CREATED, FOLLOW_UP_COMPLETED] } }, { name: from, in: query, schema: { type: string, format: date-time } }, { name: to, in: query, schema: { type: string, format: date-time } }]
-       responses: { '200': { description: Timeline events }, '401': { $ref: '#/components/responses/AuthenticationError' }, '403': { $ref: '#/components/responses/PermissionError' }, '404': { $ref: '#/components/responses/ClientNotFound' }, '422': { $ref: '#/components/responses/ValidationError' } }
+      responses: { '200': { description: Timeline events }, '401': { $ref: '#/components/responses/AuthenticationError' }, '403': { $ref: '#/components/responses/PermissionError' }, '404': { $ref: '#/components/responses/ClientNotFound' }, '422': { $ref: '#/components/responses/ValidationError' } }
   /clients/{id}/health:
     get:
       tags: [Clients]
       summary: Calculate current client health
-      description: Requires `client.read`. Read-time deterministic score starts at 100: critical unresolved issue -20, SLA breach -15, overdue follow-up -10, published client impact without published release documentation -5. Score is clamped to 0..100; 80+ HEALTHY, 60+ ATTENTION, otherwise AT_RISK. `OPS_STAFF` sees assigned clients only.
+      description: "Requires `client.read`. Read-time deterministic score starts at 100: critical unresolved issue -20, SLA breach -15, overdue follow-up -10, published client impact without published release documentation -5. Score is clamped to 0..100; 80+ HEALTHY, 60+ ATTENTION, otherwise AT_RISK. `OPS_STAFF` sees assigned clients only."
       security: [{ AccessCookie: [] }]
       parameters: [{ $ref: '#/components/parameters/ID' }]
       responses: { '200': { description: Current score and factors, content: { application/json: { schema: { $ref: '#/components/schemas/HealthEnvelope' } } } }, '401': { $ref: '#/components/responses/AuthenticationError' }, '403': { $ref: '#/components/responses/PermissionError' }, '404': { $ref: '#/components/responses/ClientNotFound' }, '422': { $ref: '#/components/responses/ValidationError' } }
@@ -380,7 +380,7 @@ paths:
       summary: List issue status history
       security: [{ AccessCookie: [] }]
       parameters: [{ $ref: '#/components/parameters/ID' }]
-       responses: { '200': { $ref: '#/components/responses/HistoryListSuccess' }, '403': { $ref: '#/components/responses/PermissionError' }, '404': { $ref: '#/components/responses/IssueNotFound' }, '422': { $ref: '#/components/responses/ValidationError' } }
+      responses: { '200': { $ref: '#/components/responses/HistoryListSuccess' }, '403': { $ref: '#/components/responses/PermissionError' }, '404': { $ref: '#/components/responses/IssueNotFound' }, '422': { $ref: '#/components/responses/ValidationError' } }
   /issues/{id}/work-state:
     post: { tags: [Issues], summary: Set issue work state, security: [{ AccessCookie: [], CSRFToken: [] }], parameters: [{ $ref: '#/components/parameters/ID' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/WorkStateRequest' } } } }, responses: { '200': { $ref: '#/components/responses/IssueUpdated' }, '403': { $ref: '#/components/responses/PermissionOrCSRFError' }, '404': { $ref: '#/components/responses/IssueNotFound' }, '409': { $ref: '#/components/responses/IssueConflict' }, '422': { $ref: '#/components/responses/ValidationError' } } }
   /issues/{id}/work-history:
