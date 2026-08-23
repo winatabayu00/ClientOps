@@ -46,6 +46,11 @@ type Overview = {
   clients?: { active?: unknown };
   follow_ups?: { pending?: unknown; overdue?: unknown };
   handoffs?: { pending?: unknown };
+  sla?: { breached?: unknown };
+  status_distribution?: { name: string; count: unknown }[];
+  waiting_breakdown?: { name: string; seconds: unknown }[];
+  top_feature_demand?: { id: string; title: string; demand: unknown }[];
+  client_health?: { name: string; count: unknown }[];
 };
 type Notification = { id: string; title: string; message: string; read_at: string | null; created_at: string; entity_type?: string; entity_id?: string };
 type Attachment = { id: string; filename: string; content_type: string; size_bytes: number; created_at: string };
@@ -225,6 +230,7 @@ function Dashboard() {
       "/issues",
       "Open issues requiring attention",
     ],
+    ["SLA breached", number(overview.sla?.breached), "/issues?sla_status=BREACHED", "Open issues beyond active SLA"],
     [
       "Active clients",
       number(overview.clients?.active),
@@ -265,6 +271,12 @@ function Dashboard() {
             <small>{detail}</small>
           </NavLink>
         ))}
+      </div>
+      <div className="detail-grid">
+        <section className="panel"><h2>Status distribution</h2>{overview.status_distribution?.length ? <ul className="compact-list">{overview.status_distribution.map((x) => <li key={x.name}><NavLink to={`/issues?status=${x.name}`}>{x.name}: {number(x.count)}</NavLink></li>)}</ul> : <p>No issues.</p>}</section>
+        <section className="panel"><h2>Waiting time</h2>{overview.waiting_breakdown?.length ? <ul className="compact-list">{overview.waiting_breakdown.map((x) => <li key={x.name}><NavLink to={`/issues?work_state=${x.name}`}>{x.name}: {Math.round(number(x.seconds) / 3600)}h</NavLink></li>)}</ul> : <p>No waiting work.</p>}</section>
+        <section className="panel"><h2>Top feature demand</h2>{overview.top_feature_demand?.length ? <ul className="compact-list">{overview.top_feature_demand.map((x) => <li key={x.id}><NavLink to={`/feature-requests/${x.id}`}>{x.title}: {number(x.demand)} clients</NavLink></li>)}</ul> : <p>No feature demand.</p>}</section>
+        <section className="panel"><h2>Client health</h2>{overview.client_health?.length ? <ul className="compact-list">{overview.client_health.map((x) => <li key={x.name}>{x.name}: {number(x.count)} active clients</li>)}</ul> : <p>No active clients.</p>}</section>
       </div>
     </section>
   );
@@ -2234,6 +2246,7 @@ function DocumentationDetail() {
   const cache = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [linking, setLinking] = useState(false);
+  const [linkingFeature, setLinkingFeature] = useState(false);
   const q = useQuery<Document>({
     queryKey: ["documentation", id],
     queryFn: () => get(`/documentation/${id}`),
@@ -2242,6 +2255,11 @@ function DocumentationDetail() {
     queryKey: ["releases", "documentation-selector"],
     queryFn: () => get("/releases"),
     enabled: linking,
+  });
+  const featureRequests = useQuery<Envelope<FeatureRequest[]>>({
+    queryKey: ["feature-requests", "documentation-selector"],
+    queryFn: () => getPage("/feature-requests?limit=100"),
+    enabled: linkingFeature,
   });
   const refresh = () => {
     cache.invalidateQueries({ queryKey: ["documentation", id] });
@@ -2267,6 +2285,10 @@ function DocumentationDetail() {
       setLinking(false);
       refresh();
     },
+  });
+  const linkFeature = useMutation({
+    mutationFn: (d: Record<string, unknown>) => post(`/documentation/${id}/feature-requests`, d),
+    onSuccess: () => { setLinkingFeature(false); refresh(); },
   });
   if (q.isPending) return <p role="status">Loading documentation...</p>;
   if (q.isError || !q.data) return <p role="alert">{message(q.error)}</p>;
@@ -2301,6 +2323,7 @@ function DocumentationDetail() {
             permissions(user, "documentation.update") && (
               <button onClick={() => setLinking(!linking)}>Link release</button>
             )}
+          {d.status !== "ARCHIVED" && permissions(user, "documentation.update") && <button onClick={() => setLinkingFeature(!linkingFeature)}>Link feature request</button>}
           {actions
             .filter(([, p]) => permissions(user, p))
             .map(([a]) => (
@@ -2366,6 +2389,12 @@ function DocumentationDetail() {
             </select>
           </label>
           <button disabled={link.isPending}>Link release</button>
+        </form>
+      )}
+      {linkingFeature && (
+        <form className="card create" onSubmit={(e) => { e.preventDefault(); linkFeature.mutate(Object.fromEntries(new FormData(e.currentTarget))); }}>
+          <label>Feature request<select name="feature_request_id" required defaultValue=""><option value="" disabled>Select feature request</option>{featureRequests.data?.data.map((x) => <option key={x.id} value={x.id}>{x.request_number} · {x.title}</option>)}</select></label>
+          <button disabled={linkFeature.isPending}>Link feature request</button>
         </form>
       )}
       <section className="panel">

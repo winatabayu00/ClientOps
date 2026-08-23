@@ -1062,12 +1062,12 @@ Alasannya:
 
 ---
 
-# 26. product_feature_documentations
+# 26. feature_request_documentations
 
 ```text
-product_feature_documentations
+feature_request_documentations
 ──────────────────────────────────
-product_feature_id  UUID FK
+feature_request_id  UUID FK
 documentation_id    UUID FK
 ```
 

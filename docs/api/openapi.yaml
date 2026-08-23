@@ -299,7 +299,7 @@ paths:
     get:
       tags: [Dashboard]
       summary: Get scoped operational overview
-      description: Requires `client.read`. `open` excludes CLOSED and CANCELLED issues; `critical` is open issues with CRITICAL severity; `pending` follow-ups are OPEN or IN_PROGRESS; `overdue` pending follow-ups have `due_at` before request time; pending handoffs have status PENDING. `OPS_STAFF` metrics include assigned clients only. SLA and client-health metrics are unavailable because current tables do not persist their inputs.
+      description: Requires `client.read`. `open` excludes CLOSED and CANCELLED issues; `critical` is open issues with CRITICAL severity; `pending` follow-ups are OPEN or IN_PROGRESS; `overdue` pending follow-ups have `due_at` before request time; pending handoffs have status PENDING. `sla.breached` uses the active severity policy. `status_distribution` counts issues by status. `waiting_breakdown` sums persisted non-ACTIVE work-state intervals in seconds. `top_feature_demand` ranks feature requests by linked requesting clients. `client_health` applies the documented deterministic health score to active clients. `OPS_STAFF` metrics include assigned clients only.
       security: [{ AccessCookie: [] }]
       responses: { '200': { description: Scoped overview }, '401': { $ref: '#/components/responses/AuthenticationError' }, '403': { $ref: '#/components/responses/PermissionError' }, '500': { $ref: '#/components/responses/InternalError' } }
   /clients/{id}/archive:
@@ -497,6 +497,15 @@ paths:
       parameters: [{ $ref: '#/components/parameters/ID' }]
       requestBody: { required: true, content: { application/json: { schema: { type: object, required: [release_id], properties: { release_id: { type: string, format: uuid } } } } } }
       responses: { '200': { description: Release linked. }, '404': { $ref: '#/components/responses/ResourceNotFound' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /documentation/{id}/feature-requests:
+    post:
+      tags: [Documentation]
+      summary: Link documentation to feature request
+      description: Requires `documentation.update`. A documentation page may explain one or more feature requests; the link does not change either lifecycle.
+      security: [{ AccessCookie: [], CSRFToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [feature_request_id], properties: { feature_request_id: { type: string, format: uuid } } } } } }
+      responses: { '200': { description: Feature request linked. }, '404': { $ref: '#/components/responses/ResourceNotFound' }, '422': { $ref: '#/components/responses/ValidationError' } }
   /handoffs:
     get:
       tags: [Handoffs]

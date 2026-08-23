@@ -1037,6 +1037,8 @@ Documentation dapat terhubung dengan:
 * Release
 * Product module
 
+Feature-request documentation links are many-to-many. They provide product context only and do not change feature-request or documentation lifecycle state.
+
 Published documentation wajib memiliki:
 
 * Title

@@ -1,6 +1,15 @@
 package dashboard
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
+
+func TestSLABreachedSQLUsesActivePolicy(t *testing.T) {
+	if !strings.Contains(slaBreachedSQL(), "sp.is_active") {
+		t.Fatal("SLA breach query must use active policies")
+	}
+}
 
 func TestTimelineTypeValidation(t *testing.T) {
 	if !validTimelineType("HANDOFF_COMPLETED") || validTimelineType("INVENTED") {

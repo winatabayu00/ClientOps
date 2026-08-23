@@ -89,6 +89,26 @@ func (s *Service) LinkRelease(id, releaseID, actor, request string) error {
 	})
 }
 
+func (s *Service) LinkFeatureRequest(id, featureRequestID, actor, request string) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		var d Document
+		if err := tx.First(&d, "id=?", id).Error; err != nil {
+			return missing(err)
+		}
+		var n int64
+		if err := tx.Table("feature_requests").Where("id=?", featureRequestID).Count(&n).Error; err != nil {
+			return err
+		}
+		if n == 0 {
+			return ErrNotFound
+		}
+		if err := tx.Exec(`INSERT INTO feature_request_documentations(feature_request_id,documentation_id) VALUES(?,?) ON CONFLICT DO NOTHING`, featureRequestID, id).Error; err != nil {
+			return err
+		}
+		return audit(tx, actor, "DOCUMENTATION_FEATURE_REQUEST_LINKED", id, nil, map[string]string{"feature_request_id": featureRequestID}, request)
+	})
+}
+
 func (s *Service) mutate(id, from, to, title, summary, content string, version int, actor, request string) (Document, error) {
 	var out Document
 	err := s.db.Transaction(func(tx *gorm.DB) error {

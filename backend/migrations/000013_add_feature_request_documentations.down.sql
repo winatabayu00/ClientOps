@@ -1,0 +1,1 @@
+DROP TABLE feature_request_documentations;

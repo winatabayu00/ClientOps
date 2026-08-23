@@ -24,6 +24,27 @@ type Overview struct {
 	Handoffs struct {
 		Pending int64 `json:"pending"`
 	} `json:"handoffs"`
+	SLA struct {
+		Breached int64 `json:"breached"`
+	} `json:"sla"`
+	StatusDistribution []Count         `json:"status_distribution"`
+	WaitingBreakdown   []Duration      `json:"waiting_breakdown"`
+	TopFeatureDemand   []FeatureDemand `json:"top_feature_demand"`
+	ClientHealth       []Count         `json:"client_health"`
+}
+
+type Count struct {
+	Name  string `json:"name"`
+	Count int64  `json:"count"`
+}
+type Duration struct {
+	Name    string `json:"name"`
+	Seconds int64  `json:"seconds"`
+}
+type FeatureDemand struct {
+	ID     string `json:"id"`
+	Title  string `json:"title"`
+	Demand int64  `json:"demand"`
 }
 
 type TimelineInput struct {
@@ -76,7 +97,37 @@ func (s *Service) Overview(userID string, scoped bool) (Overview, error) {
 	if err := handoffs.Where("h.status = 'PENDING'").Count(&out.Handoffs.Pending).Error; err != nil {
 		return out, err
 	}
+	if err := issues.Where("i.status NOT IN ('CLOSED', 'CANCELLED') AND " + slaBreachedSQL()).Count(&out.SLA.Breached).Error; err != nil {
+		return out, err
+	}
+	if err := issues.Select("i.status AS name, COUNT(*) AS count").Group("i.status").Order("i.status").Scan(&out.StatusDistribution).Error; err != nil {
+		return out, err
+	}
+	waiting := scope(s.db.Table("issue_work_states ws JOIN issues i ON i.id = ws.issue_id JOIN clients c ON c.id = i.client_id").Where("c.archived_at IS NULL AND ws.state <> 'ACTIVE'"), "c", userID, scoped)
+	if err := waiting.Select("ws.state AS name, COALESCE(SUM(EXTRACT(EPOCH FROM (COALESCE(ws.ended_at, NOW()) - ws.started_at))), 0)::bigint AS seconds").Group("ws.state").Order("ws.state").Scan(&out.WaitingBreakdown).Error; err != nil {
+		return out, err
+	}
+	demand := s.db.Table("feature_requests fr JOIN feature_request_clients frc ON frc.feature_request_id = fr.id")
+	if scoped {
+		demand = demand.Where("EXISTS (SELECT 1 FROM client_owners co WHERE co.client_id = frc.client_id AND co.user_id = ? AND co.unassigned_at IS NULL)", userID)
+	}
+	if err := demand.Select("fr.id, fr.title, COUNT(frc.client_id) AS demand").Group("fr.id, fr.title").Order("demand DESC, fr.first_requested_at ASC").Limit(5).Scan(&out.TopFeatureDemand).Error; err != nil {
+		return out, err
+	}
+	health := scope(s.db.Table("clients c").Where("c.archived_at IS NULL AND c.status = 'ACTIVE'"), "c", userID, scoped)
+	score := `100
+ - 20 * (SELECT COUNT(*) FROM issues i WHERE i.client_id = c.id AND i.severity = 'CRITICAL' AND i.status NOT IN ('CLOSED', 'CANCELLED'))
+ - 15 * (SELECT COUNT(*) FROM issues i WHERE i.client_id = c.id AND i.status NOT IN ('CLOSED', 'CANCELLED') AND ` + slaBreachedSQL() + `)
+ - 10 * (SELECT COUNT(*) FROM client_follow_ups f WHERE f.client_id = c.id AND f.status IN ('OPEN', 'IN_PROGRESS') AND f.due_at < NOW())
+ - 5 * (SELECT COUNT(*) FROM release_impacts ri JOIN releases r ON r.id = ri.release_id WHERE ri.client_id = c.id AND r.status = 'PUBLISHED' AND NOT EXISTS (SELECT 1 FROM release_documentations rd JOIN documentations d ON d.id = rd.documentation_id WHERE rd.release_id = ri.release_id AND d.status = 'PUBLISHED'))`
+	if err := health.Select("CASE WHEN (" + score + ") >= 80 THEN 'HEALTHY' WHEN (" + score + ") >= 60 THEN 'ATTENTION' ELSE 'AT_RISK' END AS name, COUNT(*) AS count").Group("name").Order("name").Scan(&out.ClientHealth).Error; err != nil {
+		return out, err
+	}
 	return out, nil
+}
+
+func slaBreachedSQL() string {
+	return "EXISTS (SELECT 1 FROM sla_policies sp WHERE sp.severity = i.severity AND sp.is_active AND COALESCE(i.resolved_at, NOW()) > i.reported_at + sp.resolution_minutes * INTERVAL '1 minute')"
 }
 
 const timelineEvents = `

@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/winatabayu00/school-success-platform/backend/internal/api"
 	"github.com/winatabayu00/school-success-platform/backend/internal/auth"
 )
@@ -28,7 +29,8 @@ type versionRequest struct {
 	Version int `json:"version"`
 }
 type linkRequest struct {
-	ReleaseID string `json:"release_id"`
+	ReleaseID        string `json:"release_id"`
+	FeatureRequestID string `json:"feature_request_id"`
 }
 
 func (h *Handler) List(c *gin.Context) {
@@ -80,13 +82,23 @@ func (h *Handler) Action(action string) gin.HandlerFunc {
 }
 func (h *Handler) LinkRelease(c *gin.Context) {
 	var in linkRequest
-	if c.ShouldBindJSON(&in) != nil || in.ReleaseID == "" {
+	if c.ShouldBindJSON(&in) != nil || invalidUUID(in.ReleaseID) {
 		invalid(c)
 		return
 	}
 	err := h.service.LinkRelease(c.Param("id"), in.ReleaseID, auth.CurrentUser(c).ID, api.RequestID(c))
 	respond(c, nil, err, "Release linked", http.StatusOK)
 }
+func (h *Handler) LinkFeatureRequest(c *gin.Context) {
+	var in linkRequest
+	if c.ShouldBindJSON(&in) != nil || invalidUUID(in.FeatureRequestID) {
+		invalid(c)
+		return
+	}
+	err := h.service.LinkFeatureRequest(c.Param("id"), in.FeatureRequestID, auth.CurrentUser(c).ID, api.RequestID(c))
+	respond(c, nil, err, "Feature request linked", http.StatusOK)
+}
+func invalidUUID(value string) bool { _, err := uuid.Parse(value); return err != nil }
 func invalid(c *gin.Context) {
 	api.Error(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "Validation failed", nil)
 }

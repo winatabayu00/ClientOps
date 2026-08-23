@@ -160,6 +160,7 @@ func main() {
 	documentationRoutes.POST("/:id/publish", auth.Require("documentation.publish"), documentationHandler.Action("publish"))
 	documentationRoutes.POST("/:id/archive", auth.Require("documentation.archive"), documentationHandler.Action("archive"))
 	documentationRoutes.POST("/:id/releases", auth.Require("documentation.update"), documentationHandler.LinkRelease)
+	documentationRoutes.POST("/:id/feature-requests", auth.Require("documentation.update"), documentationHandler.LinkFeatureRequest)
 	operationsHandler := operations.NewHandler(operations.NewService(db))
 	handoffRoutes := apiV1.Group("/handoffs", authHandler.Authenticate(), authHandler.CSRFProtection())
 	handoffRoutes.GET("", auth.Require("release.read"), operationsHandler.ListHandoffs)
