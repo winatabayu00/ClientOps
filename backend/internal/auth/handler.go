@@ -74,6 +74,63 @@ func (h *Handler) Logout(c *gin.Context) {
 func (h *Handler) Me(c *gin.Context) {
 	api.Success(c, http.StatusOK, publicUser(CurrentUser(c)), "Success")
 }
+func (h *Handler) Sessions(c *gin.Context) {
+	refresh, _ := c.Cookie(h.cfg.RefreshCookieName)
+	sessions, err := h.service.Sessions(CurrentUser(c).ID, refresh)
+	if err != nil {
+		api.InternalError(c)
+		return
+	}
+	api.Success(c, http.StatusOK, sessions, "Success")
+}
+func (h *Handler) RevokeSession(c *gin.Context) {
+	current := CurrentUser(c)
+	refresh, _ := c.Cookie(h.cfg.RefreshCookieName)
+	sessions, err := h.service.Sessions(current.ID, refresh)
+	if err != nil {
+		api.InternalError(c)
+		return
+	}
+	isCurrent := false
+	for _, session := range sessions {
+		if session.ID == c.Param("id") {
+			isCurrent = session.Current
+		}
+	}
+	revoked, err := h.service.RevokeSession(current.ID, c.Param("id"))
+	if err != nil {
+		api.InternalError(c)
+		return
+	}
+	if !revoked {
+		api.Error(c, http.StatusNotFound, "RESOURCE_NOT_FOUND", "Session not found", nil)
+		return
+	}
+	if isCurrent {
+		h.clearTokens(c)
+	}
+	c.Status(http.StatusNoContent)
+}
+func (h *Handler) UserSessions(c *gin.Context) {
+	sessions, err := h.service.Sessions(c.Param("id"), "")
+	if err != nil {
+		api.InternalError(c)
+		return
+	}
+	api.Success(c, http.StatusOK, sessions, "Success")
+}
+func (h *Handler) RevokeUserSession(c *gin.Context) {
+	revoked, err := h.service.RevokeSession(c.Param("id"), c.Param("sessionID"))
+	if err != nil {
+		api.InternalError(c)
+		return
+	}
+	if !revoked {
+		api.Error(c, http.StatusNotFound, "RESOURCE_NOT_FOUND", "Session not found", nil)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
 
 func (h *Handler) CSRF(c *gin.Context) {
 	token, err := randomToken()

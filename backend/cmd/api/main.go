@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/winatabayu00/school-success-platform/backend/errorshim"
 	"github.com/winatabayu00/school-success-platform/backend/internal/api"
+	"github.com/winatabayu00/school-success-platform/backend/internal/audit"
 	"github.com/winatabayu00/school-success-platform/backend/internal/auth"
 	"github.com/winatabayu00/school-success-platform/backend/internal/clients"
 	"github.com/winatabayu00/school-success-platform/backend/internal/dashboard"
@@ -44,6 +45,8 @@ func main() {
 	authRoutes.POST("/refresh", authHandler.Refresh)
 	authRoutes.POST("/logout", authHandler.Logout)
 	authRoutes.GET("/me", authHandler.Authenticate(), authHandler.Me)
+	authRoutes.GET("/sessions", authHandler.Authenticate(), authHandler.Sessions)
+	authRoutes.DELETE("/sessions/:id", authHandler.Authenticate(), authHandler.RevokeSession)
 	userHandler := users.NewHandler(users.NewService(db))
 	userRoutes := apiV1.Group("/users", authHandler.Authenticate(), authHandler.CSRFProtection(), auth.Require("user.manage"))
 	userRoutes.GET("", userHandler.ListUsers)
@@ -51,6 +54,12 @@ func main() {
 	userRoutes.GET("/:id", userHandler.GetUser)
 	userRoutes.PATCH("/:id", userHandler.UpdateUser)
 	userRoutes.PUT("/:id/roles", userHandler.SetRoles)
+	userRoutes.GET("/:id/sessions", authHandler.UserSessions)
+	userRoutes.DELETE("/:id/sessions/:sessionID", authHandler.RevokeUserSession)
+	auditHandler := audit.NewHandler(audit.NewService(db))
+	auditRoutes := apiV1.Group("/audit-logs", authHandler.Authenticate(), auth.Require("audit.read"))
+	auditRoutes.GET("", auditHandler.List)
+	auditRoutes.GET("/:id", auditHandler.Get)
 	roleRoutes := apiV1.Group("/roles", authHandler.Authenticate(), authHandler.CSRFProtection(), auth.Require("role.manage"))
 	roleRoutes.GET("", userHandler.ListRoles)
 	roleRoutes.POST("", userHandler.CreateRole)

@@ -32,6 +32,16 @@ type Service struct {
 	db        *gorm.DB
 	accessKey []byte
 }
+type Session struct {
+	ID         string    `json:"id"`
+	UserID     string    `json:"user_id,omitempty"`
+	UserAgent  *string   `json:"user_agent"`
+	IPAddress  *string   `json:"ip_address"`
+	CreatedAt  time.Time `json:"created_at"`
+	LastUsedAt time.Time `json:"last_used_at"`
+	ExpiresAt  time.Time `json:"expires_at"`
+	Current    bool      `json:"current"`
+}
 
 func NewService(db *gorm.DB, accessKey string) *Service {
 	return &Service{db: db, accessKey: []byte(accessKey)}
@@ -87,6 +97,15 @@ func (s *Service) Refresh(refresh, userAgent, ip string) (string, string, error)
 
 func (s *Service) Logout(refresh string) error {
 	return s.db.Exec(`UPDATE auth_sessions SET revoked_at = NOW() WHERE refresh_token_hash = ? AND revoked_at IS NULL`, tokenHash(refresh)).Error
+}
+func (s *Service) Sessions(userID, refresh string) ([]Session, error) {
+	var sessions []Session
+	err := s.db.Raw(`SELECT id, user_id, user_agent, ip_address::text ip_address, created_at, last_used_at, expires_at, refresh_token_hash = ? AS current FROM auth_sessions WHERE user_id = ? AND revoked_at IS NULL AND expires_at > NOW() ORDER BY last_used_at DESC`, tokenHash(refresh), userID).Scan(&sessions).Error
+	return sessions, err
+}
+func (s *Service) RevokeSession(userID, sessionID string) (bool, error) {
+	result := s.db.Exec(`UPDATE auth_sessions SET revoked_at = NOW() WHERE id = ? AND user_id = ? AND revoked_at IS NULL`, sessionID, userID)
+	return result.RowsAffected == 1, result.Error
 }
 
 func (s *Service) User(access string) (User, error) {

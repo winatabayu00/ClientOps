@@ -21,7 +21,52 @@ tags:
   - name: Permissions
   - name: Dashboard
   - name: Notifications
+  - name: Audit
 paths:
+  /audit-logs:
+    get:
+      tags: [Audit]
+      summary: List audit logs
+      description: Requires `audit.read`. Filters: `actor_id`, `action`, `resource_type`, `resource_id`, `from`, `to` (RFC3339), `page`, `limit` (maximum 100).
+      security: [{ AccessCookie: [] }]
+      responses: { '200': { description: Paginated audit records. }, '401': { $ref: '#/components/responses/AuthenticationError' }, '403': { $ref: '#/components/responses/PermissionError' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /audit-logs/{id}:
+    get:
+      tags: [Audit]
+      summary: Get audit log details
+      description: Requires `audit.read`.
+      security: [{ AccessCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      responses: { '200': { description: Audit record. }, '401': { $ref: '#/components/responses/AuthenticationError' }, '403': { $ref: '#/components/responses/PermissionError' }, '404': { $ref: '#/components/responses/ResourceNotFound' } }
+  /auth/sessions:
+    get:
+      tags: [Auth]
+      summary: List current user's sessions
+      security: [{ AccessCookie: [] }]
+      responses: { '200': { description: Current user's sessions. }, '401': { $ref: '#/components/responses/AuthenticationError' } }
+  /auth/sessions/{id}:
+    delete:
+      tags: [Auth]
+      summary: Revoke one current-user session
+      security: [{ AccessCookie: [], CSRFToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      responses: { '204': { description: Session revoked. }, '401': { $ref: '#/components/responses/AuthenticationError' }, '404': { $ref: '#/components/responses/ResourceNotFound' } }
+  /users/{id}/sessions:
+    get:
+      tags: [Users]
+      summary: List a user's sessions
+      description: Requires `user.manage`.
+      security: [{ AccessCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      responses: { '200': { description: User sessions. }, '403': { $ref: '#/components/responses/PermissionError' } }
+  /users/{id}/sessions/{sessionID}:
+    delete:
+      tags: [Users]
+      summary: Revoke a user's session
+      description: Requires `user.manage`.
+      security: [{ AccessCookie: [], CSRFToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/ID' }, { name: sessionID, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { '204': { description: Session revoked. }, '403': { $ref: '#/components/responses/PermissionOrCSRFError' }, '404': { $ref: '#/components/responses/ResourceNotFound' } }
   /notifications:
     get:
       tags: [Notifications]

@@ -27,6 +27,7 @@ import {
   post,
   put,
   type Envelope,
+  type Session,
   type User,
 } from "./api";
 
@@ -141,7 +142,7 @@ function Shell() {
     ["handoffs", "handoffs", ["handoff.read", "issue.follow_up"]],
     ["follow ups", "follow-ups", ["client_followup.read", "issue.follow_up"]],
     ["documentation", "documentation", ["documentation.read"]],
-    ["management", "management", ["user.manage", "role.manage"]],
+    ["management", "management", ["user.manage", "role.manage", "audit.read"]],
   ];
   return (
     <div className="app-shell">
@@ -2742,7 +2743,7 @@ type ManagedUser = {
 type Permission = { id: string; code: string; description?: string };
 function Management() {
   const user = useOutletContext<User>();
-  if (!permissions(user, "user.manage") && !permissions(user, "role.manage"))
+  if (!permissions(user, "user.manage") && !permissions(user, "role.manage") && !permissions(user, "audit.read"))
     return <Navigate to="/dashboard" replace />;
   return (
     <section>
@@ -2756,9 +2757,21 @@ function Management() {
         {permissions(user, "role.manage") && (
           <NavLink to="/management/roles">Roles</NavLink>
         )}
+        {permissions(user, "audit.read") && <NavLink to="/management/audit-logs">Audit logs</NavLink>}
+        <NavLink to="/management/sessions">My sessions</NavLink>
       </div>
     </section>
   );
+}
+type AuditLog = { id: string; actor_name?: string; action: string; resource_type: string; resource_id?: string; created_at: string; before_data?: unknown; after_data?: unknown; request_id?: string };
+function AuditLogs() {
+  const user = useOutletContext<User>(); const [params, setParams] = useSearchParams(); const query = useQuery<Envelope<AuditLog[]>>({ queryKey:["audit-logs", params.toString()], queryFn:()=>getPage(`/audit-logs?${params}`), enabled:permissions(user,"audit.read") });
+  if (!permissions(user,"audit.read")) return <Navigate to="/management" replace />;
+  return <section><div className="title"><h1>Audit logs</h1></div><form className="client-filters" onSubmit={e=>{e.preventDefault(); const next=new URLSearchParams(); new FormData(e.currentTarget).forEach((v,k)=>{if(v)next.set(k,String(v))}); setParams(next)}}><label>Action<input name="action" defaultValue={params.get("action")||""}/></label><label>Resource<input name="resource_type" defaultValue={params.get("resource_type")||""}/></label><button>Apply filters</button></form>{query.isPending?<p role="status">Loading audit logs...</p>:query.isError?<p role="alert">{message(query.error)}</p>:query.data?.data.length?<ul className="records">{query.data.data.map(x=><li key={x.id}><strong>{x.action}</strong><small>{x.resource_type} {x.resource_id||""} by {x.actor_name||"System"} at {new Date(x.created_at).toLocaleString()}</small><details><summary>Details</summary><pre>{JSON.stringify({before:x.before_data,after:x.after_data,request_id:x.request_id},null,2)}</pre></details></li>)}</ul>:<p>No audit logs.</p>}</section>;
+}
+function Sessions() {
+  const cache=useQueryClient(); const query=useQuery<Session[]>({queryKey:["sessions"],queryFn:auth.sessions}); const revoke=useMutation({mutationFn:auth.revokeSession,onSuccess:()=>cache.invalidateQueries({queryKey:["sessions"]})});
+  return <section><div className="title"><h1>My sessions</h1></div>{query.isPending?<p role="status">Loading sessions...</p>:query.isError?<p role="alert">{message(query.error)}</p>:query.data?.length?<ul className="records">{query.data.map(s=><li key={s.id}><strong>{s.user_agent||"Unknown device"}{s.current?" (current)":""}</strong><small>{s.ip_address||"Unknown IP"} · Last used {new Date(s.last_used_at).toLocaleString()}</small><button onClick={()=>{if(confirm("Revoke this session?")) revoke.mutate(s.id)}} disabled={revoke.isPending}>Revoke</button></li>)}</ul>:<p>No active sessions.</p>}</section>;
 }
 function UsersManagement() {
   const user = useOutletContext<User>();
@@ -2956,6 +2969,8 @@ function UserManagementDetail() {
     },
     onError: (e) => setError(message(e)),
   });
+  const sessions = useQuery<Session[]>({ queryKey: ["user-sessions", id], queryFn: () => get(`/users/${id}/sessions`), enabled: permissions(user, "user.manage") });
+  const revokeSession = useMutation({ mutationFn: (sessionID: string) => del(`/users/${id}/sessions/${sessionID}`), onSuccess: () => cache.invalidateQueries({ queryKey: ["user-sessions", id] }) });
   if (!permissions(user, "user.manage"))
     return <Navigate to="/management" replace />;
   if (q.isPending) return <p role="status">Loading user...</p>;
@@ -3026,6 +3041,10 @@ function UserManagementDetail() {
             {setRoles.isPending ? "Saving..." : "Save roles"}
           </button>
         </form>
+        <div className="panel">
+          <h2>Sessions</h2>
+          {sessions.isPending ? <p>Loading sessions...</p> : sessions.isError ? <p role="alert">{message(sessions.error)}</p> : sessions.data?.length ? <ul className="records">{sessions.data.map((session) => <li key={session.id}><strong>{session.user_agent || "Unknown device"}</strong><small>{session.ip_address || "Unknown IP"} · {new Date(session.last_used_at).toLocaleString()}</small><button onClick={() => { if (confirm("Revoke this session?")) revokeSession.mutate(session.id) }} disabled={revokeSession.isPending}>Revoke</button></li>)}</ul> : <p>No active sessions.</p>}
+        </div>
       </div>
     </section>
   );
@@ -3279,6 +3298,8 @@ export default function App() {
           <Route path="/documentation/:id" element={<DocumentationDetail />} />
           <Route path="/notifications" element={<Notifications />} />
           <Route path="/management" element={<Management />} />
+          <Route path="/management/audit-logs" element={<AuditLogs />} />
+          <Route path="/management/sessions" element={<Sessions />} />
           <Route path="/management/users" element={<UsersManagement />} />
           <Route
             path="/management/users/:id"

@@ -37,5 +37,8 @@ export const auth = {
   me: () => get<User>('/auth/me'),
   login: (email: string, password: string) => post<User>('/auth/login', { email, password }),
   logout: () => api.post('/auth/logout'),
+  sessions: () => get<Session[]>('/auth/sessions'),
+  revokeSession: (id: string) => del(`/auth/sessions/${id}`),
 }
+export type Session = { id: string; user_id?: string; user_agent?: string; ip_address?: string; created_at: string; last_used_at: string; expires_at: string; current: boolean }
 export default api
