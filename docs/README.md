@@ -6,7 +6,7 @@ This document connects product intent, implementation, verification, and deliver
 
 ```text
 Planning: Complete
-Implementation: P0 complete; P1 capabilities in progress
+Implementation: P0 and P1 capabilities complete
 Current milestone: M8 - Quality hardening
 Current priority: P0
 ```

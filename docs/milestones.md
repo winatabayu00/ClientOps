@@ -1672,53 +1672,53 @@ Feature Requests and Knowledge can be simplified if necessary, but should ideall
 # 38. P0 Checklist
 
 ```text
-[ ] Repository bootstrap
+[x] Repository bootstrap
 
-[ ] Docker local environment
+[x] Docker local environment
 
-[ ] PostgreSQL
+[x] PostgreSQL
 
-[ ] Explicit migrations
+[x] Explicit migrations
 
-[ ] Auth
+[x] Auth
 
-[ ] CSRF
+[x] CSRF
 
-[ ] Refresh concurrency
+[x] Refresh concurrency
 
-[ ] RBAC
+[x] RBAC
 
-[ ] Users
+[x] Users
 
-[ ] Clients
+[x] Clients
 
-[ ] Issues
+[x] Issues
 
-[ ] Issue workflow
+[x] Issue workflow
 
-[ ] Optimistic locking
+[x] Optimistic locking
 
-[ ] Releases
+[x] Releases
 
-[ ] Release impact
+[x] Release impact
 
-[ ] Operational handoff
+[x] Operational handoff
 
-[ ] Follow-up
+[x] Follow-up
 
-[ ] Operational closure
+[x] Operational closure
 
-[ ] Search/filter/sort/pagination
+[x] Search/filter/sort/pagination
 
-[ ] Error handling
+[x] Error handling
 
-[ ] Required UI states
+[x] Required UI states
 
-[ ] Backend tests
+[x] Backend tests
 
-[ ] OpenAPI
+[x] OpenAPI
 
-[ ] README
+[x] README
 ```
 
 ---
@@ -1726,25 +1726,25 @@ Feature Requests and Knowledge can be simplified if necessary, but should ideall
 # 39. P1 Checklist
 
 ```text
-[ ] Feature Requests
+[x] Feature Requests
 
-[ ] Multi-client demand
+[x] Multi-client demand
 
-[ ] Work state time breakdown
+[x] Work state time breakdown
 
-[ ] SLA
+[x] SLA
 
-[ ] Client Timeline
+[x] Client Timeline
 
-[ ] Documentation
+[x] Documentation
 
-[ ] Notification
+[x] Notification
 
-[ ] Worker
+[x] Worker
 
-[ ] Dashboard analytics
+[x] Dashboard analytics
 
-[ ] Audit log UI
+[x] Audit log UI
 ```
 
 ---
@@ -1752,23 +1752,23 @@ Feature Requests and Knowledge can be simplified if necessary, but should ideall
 # 40. P2 Checklist
 
 ```text
-[ ] MinIO attachments
+[x] MinIO attachments
 
-[ ] Client Health
+[x] Client Health
 
-[ ] Auth session management UI
+[x] Auth session management UI
 
-[ ] E2E full flow
+[x] E2E full flow
 
-[ ] CI/CD
+[x] CI/CD
 
-[ ] Metrics
+[x] Metrics
 
-[ ] Advanced caching
+[x] Advanced caching
 
-[ ] Transactional Outbox
+[x] Transactional Outbox
 
-[ ] Email notifications
+[x] Email notifications
 ```
 
 ---
