@@ -38,7 +38,7 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-clientops_dev}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-replace-with-a-long-random-minio-secret}
       MINIO_BUCKET: ${MINIO_BUCKET:-clientops}
-    ports: ["8080:8080"]
+    ports: ["${API_PORT:-8080}:8080"]
     depends_on:
       postgres:
         condition: service_healthy

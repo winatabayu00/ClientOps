@@ -1592,6 +1592,10 @@ function ReleaseDetail() {
     queryKey: ["clients", "release-selector"],
     queryFn: () => get("/clients?limit=100"),
   });
+  const issues = useQuery<Issue[]>({
+    queryKey: ["issues", "release-selector"],
+    queryFn: () => getPage<Issue[]>("/issues?limit=100").then((page) => page.data),
+  });
   function refresh() {
     cache.invalidateQueries({ queryKey: ["release", id] });
     cache.invalidateQueries({ queryKey: ["releases"] });
@@ -1633,7 +1637,7 @@ function ReleaseDetail() {
     e.preventDefault();
     item.mutate({
       ...Object.fromEntries(new FormData(e.currentTarget)),
-      issue_ids: [],
+      issue_ids: Array.from(new FormData(e.currentTarget).getAll("issue_ids"), String),
     });
   }
   function addImpact(e: FormEvent<HTMLFormElement>) {
@@ -1715,10 +1719,20 @@ function ReleaseDetail() {
                 Title
                 <input name="title" required />
               </label>
-              <label>
-                Description
-                <textarea name="description" required />
-              </label>
+               <label>
+                 Description
+                 <textarea name="description" required />
+               </label>
+               <label>
+                 Related issues
+                 <select name="issue_ids" multiple>
+                   {issues.data?.map((issue) => (
+                     <option key={issue.id} value={issue.id}>
+                       {issue.issue_number} · {issue.title}
+                     </option>
+                   ))}
+                 </select>
+               </label>
               <button disabled={item.isPending}>
                 {item.isPending ? "Adding..." : "Add item"}
               </button>

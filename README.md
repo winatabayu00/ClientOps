@@ -37,12 +37,14 @@ Build and test:
 
 ```bash
 make backend-test
+make backend-vet
 make frontend-build
+make openapi-check
 make test
 make build
 ```
 
-`make test` runs Go tests and the frontend TypeScript/Vite build. There is no `frontend-test`, `test-integration`, or `test-e2e` target: no frontend test or browser runner is installed, and Docker Compose supplies only the shared development PostgreSQL database. A database integration target would need an isolated test database plus migration lifecycle before it can run safely and reproducibly.
+`make test` runs Go vet/tests, frontend TypeScript/Vite build, and OpenAPI validation.
 
 Implementation starts from the [`Documentation and Delivery Map`](docs/README.md), which connects source-of-truth documents, delivery order, traceability, and Definition of Done gates.
 
