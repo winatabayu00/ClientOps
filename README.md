@@ -14,13 +14,7 @@ A bug fix or feature is not considered fully delivered only because it has been 
 
 ## Status
 
-```text
-Planning: Complete
-Implementation: Bootstrap complete
-Current Milestone: M1 — Infrastructure & Database Foundation
-```
-
-This README is a living document and will be updated as the implementation progresses.
+P0 backend and frontend capabilities are implemented: cookie authentication, CSRF, RBAC, clients, issues and workflow, releases, handoffs, follow-ups, audit records, API documentation, and operational UI. P1 capabilities also present include feature requests, SLA/work states, client timeline, documentation, notifications, dashboard metrics, and MinIO attachments.
 
 ## Local Development
 
@@ -34,6 +28,18 @@ make seed
 `make seed` requires `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `.env`; `ADMIN_NAME` is optional. It safely upserts documented roles and permissions, grants all permissions to `SUPER_ADMIN`, and creates or updates that administrator with an Argon2id PHC password hash.
 
 API health: `http://localhost:8080/health`.
+
+API readiness: `http://localhost:8080/ready`.
+
+Swagger UI: `http://localhost:8080/api/docs`. It loads the served OpenAPI document at `http://localhost:8080/api/docs/openapi.yaml`; source lives at [`docs/api/openapi.yaml`](docs/api/openapi.yaml).
+
+Build and test:
+
+```bash
+make backend-test
+make frontend-build
+make build
+```
 
 Implementation starts from the [`Documentation and Delivery Map`](docs/README.md), which connects source-of-truth documents, delivery order, traceability, and Definition of Done gates.
 
@@ -819,15 +825,13 @@ Standard error response:
 
 ## API Documentation
 
-OpenAPI specification will be available at:
+OpenAPI specification source:
 
 ```text
 docs/api/openapi.yaml
 ```
 
-Swagger UI will be exposed by the backend when implemented.
-
-Planned route:
+Swagger UI:
 
 ```text
 /api/docs

@@ -6,8 +6,8 @@ This document connects product intent, implementation, verification, and deliver
 
 ```text
 Planning: Complete
-Implementation: Not Started
-Current milestone: M0 - Bootstrap
+Implementation: P0 complete; P1 capabilities in progress
+Current milestone: M8 - Quality hardening
 Current priority: P0
 ```
 

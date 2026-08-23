@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -37,6 +38,11 @@ func main() {
 	router.Use(api.RequestIDMiddleware(), gin.Logger(), errorshim.Recovery())
 	router.GET("/health", health.Live)
 	router.GET("/ready", health.Ready(db))
+	router.GET("/api/docs", func(c *gin.Context) {
+		c.Header("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline' https://unpkg.com; script-src 'self' https://unpkg.com")
+		c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(`<!doctype html><html><head><meta charset="utf-8"><title>ClientOps API</title><link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css"></head><body><div id="swagger-ui"></div><script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script><script>SwaggerUIBundle({url:"/api/docs/openapi.yaml",dom_id:"#swagger-ui"})</script></body></html>`))
+	})
+	router.StaticFile("/api/docs/openapi.yaml", "docs/api/openapi.yaml")
 	apiV1 := router.Group("/api/v1")
 	authHandler := auth.NewHandler(auth.NewService(db, cfg.AccessTokenKey), cfg)
 	rateLimiter := auth.NewRateLimiter(cfg.RedisAddr)

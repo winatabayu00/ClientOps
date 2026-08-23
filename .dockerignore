@@ -15,4 +15,6 @@ tmp
 **/tmp
 *.log
 .DS_Store
-docs
+docs/*
+!docs/api/
+!docs/api/openapi.yaml
