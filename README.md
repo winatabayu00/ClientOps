@@ -1,5 +1,7 @@
 # ClientOps
 
+> Bahasa Indonesia: [README.id.md](README.id.md)
+
 School Success & Operational Visibility Platform for B2B EdTech.
 
 ClientOps is a fullstack web application designed to improve operational visibility between school clients, Operations, Product, and Engineering.
