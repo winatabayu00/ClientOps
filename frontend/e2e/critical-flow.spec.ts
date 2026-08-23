@@ -59,7 +59,9 @@ test("login through operational closure", { timeout: 120_000 }, async ({ page })
   await impactForm.getByRole("button", { name: "Add impact" }).click();
   await page.getByRole("button", { name: "Mark ready" }).click();
   await page.getByRole("button", { name: "Publish release" }).click();
-  await expect(page.getByRole("button", { name: "Publish release" })).toBeHidden();
+  const publishDialog = page.getByRole("alertdialog");
+  await publishDialog.getByRole("button", { name: "Publish release" }).click();
+  await expect(publishDialog).toBeHidden();
 
   await page.getByRole("link", { name: "issues" }).click();
   await record(page, issueTitle).click();
@@ -83,7 +85,10 @@ test("login through operational closure", { timeout: 120_000 }, async ({ page })
   const followUp = page.getByRole("listitem").filter({ hasText: clientName }).filter({ hasText: "Confirm client received release." });
   await followUp.getByRole("button", { name: "Start" }).click();
   await followUp.getByRole("button", { name: "Complete" }).click();
-  await expect(followUp.getByRole("button", { name: "Complete" })).toBeHidden();
+  const completeDialog = page.getByRole("alertdialog");
+  await completeDialog.getByLabel("Follow-up result").fill("Client confirmed.");
+  await completeDialog.getByRole("button", { name: "Complete" }).click();
+  await expect(completeDialog).toBeHidden();
 
   await page.getByRole("link", { name: "documentation" }).click();
   await page.getByRole("button", { name: "New document" }).click();
