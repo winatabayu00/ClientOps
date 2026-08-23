@@ -12,3 +12,15 @@ func TestScheduledJobSQLIsIdempotent(t *testing.T) {
 		}
 	}
 }
+
+func TestSendMailDisabled(t *testing.T) {
+	if err := sendMail("", "ops@example.test", "subject", "body"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestSendMailNoSenderDisabled(t *testing.T) {
+	if err := sendMail("smtp://localhost:25", "ops@example.test", "subject", "body"); err != nil {
+		t.Fatal(err)
+	}
+}

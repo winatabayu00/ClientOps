@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/winatabayu00/school-success-platform/backend/internal/outbox"
 	"gorm.io/gorm"
 )
 
@@ -164,9 +165,7 @@ func (s *Service) Publish(id, actor, request string) (int64, error) {
 			if err := tx.Exec(`INSERT INTO operational_handoffs(release_id,client_id,ops_owner_id,status,requires_follow_up) VALUES(?,?,?,?,?)`, id, i.ClientID, owner, status, i.RequiresFollowUp).Error; err != nil {
 				return err
 			}
-			if err := tx.Exec(`INSERT INTO notifications(user_id,type,title,message,entity_type,entity_id)
-				VALUES (?, 'RELEASE_PUBLISHED', 'Release published', ?, 'release', ?)
-				ON CONFLICT DO NOTHING`, owner, r.Version+": "+r.Title, id).Error; err != nil {
+			if err := outbox.Notify(tx, outbox.Notification{UserID: owner, Type: "RELEASE_PUBLISHED", Title: "Release published", Message: r.Version + ": " + r.Title, EntityType: "release", EntityID: id}); err != nil {
 				return err
 			}
 			count++

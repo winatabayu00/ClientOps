@@ -31,6 +31,12 @@ API health: `http://localhost:8080/health`.
 
 API readiness: `http://localhost:8080/ready`.
 
+Prometheus plaintext metrics: `http://localhost:8080/metrics`. It is intentionally unauthenticated for a private scraper network; do not expose it publicly.
+
+Dashboard overview uses Redis for a 30-second versioned cache. Successful API writes and worker runs advance the version, preventing stale dashboard data after mutations. Redis failure bypasses cache.
+
+Notifications use a PostgreSQL transactional outbox. Assignment and release publication atomically enqueue in-app/email delivery; worker retries failures after five minutes. `SMTP_URL` is optional. Empty `SMTP_URL`, or a URL without `from`, safely disables email. No SMTP credentials are logged.
+
 Swagger UI: `http://localhost:8080/api/docs`. It loads the served OpenAPI document at `http://localhost:8080/api/docs/openapi.yaml`; source lives at [`docs/api/openapi.yaml`](docs/api/openapi.yaml).
 
 Build and test:

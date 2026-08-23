@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/winatabayu00/school-success-platform/backend/internal/outbox"
 	"gorm.io/gorm"
 )
 
@@ -266,9 +267,7 @@ func (s *Service) Assign(id string, in TransitionInput, actorID, requestID strin
 			return ErrAssigneeRequired
 		}
 		fields["assignee_id"] = *in.AssigneeID
-		return tx.Exec(`INSERT INTO notifications(user_id,type,title,message,entity_type,entity_id)
-			VALUES (?, 'ISSUE_ASSIGNED', 'Issue assigned', ?, 'issue', ?)
-			ON CONFLICT DO NOTHING`, *in.AssigneeID, current.IssueNumber+": "+current.Title, current.ID).Error
+		return outbox.Notify(tx, outbox.Notification{UserID: *in.AssigneeID, Type: "ISSUE_ASSIGNED", Title: "Issue assigned", Message: current.IssueNumber + ": " + current.Title, EntityType: "issue", EntityID: current.ID})
 	})
 }
 func (s *Service) Transition(id, to string, in TransitionInput, actorID, requestID string) (Issue, error) {

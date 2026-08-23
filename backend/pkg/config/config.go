@@ -17,6 +17,7 @@ type Config struct {
 	MinIOAccessKey    string
 	MinIOSecretKey    string
 	MinIOBucket       string
+	SMTPURL           string
 }
 
 func Load() (Config, error) {
@@ -32,6 +33,7 @@ func Load() (Config, error) {
 		MinIOAccessKey:    os.Getenv("MINIO_ACCESS_KEY"),
 		MinIOSecretKey:    os.Getenv("MINIO_SECRET_KEY"),
 		MinIOBucket:       value("MINIO_BUCKET", "clientops"),
+		SMTPURL:           os.Getenv("SMTP_URL"),
 	}
 	if cfg.DatabaseURL == "" {
 		return Config{}, fmt.Errorf("DATABASE_URL is required")
