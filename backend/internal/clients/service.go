@@ -30,6 +30,25 @@ type Client struct {
 	CreatedAt         time.Time  `json:"created_at"`
 	UpdatedAt         time.Time  `json:"updated_at"`
 	ArchivedAt        *time.Time `json:"archived_at"`
+	Health            *Health    `json:"health,omitempty" gorm:"-"`
+}
+type Health struct {
+	Score          int       `json:"score"`
+	Classification string    `json:"classification"`
+	Factors        []Factor  `json:"factors"`
+	CalculatedAt   time.Time `json:"calculated_at"`
+}
+type Factor struct {
+	Code        string `json:"code"`
+	Impact      int    `json:"impact"`
+	Description string `json:"description"`
+}
+type healthInputs struct {
+	ID                   string
+	CriticalUnresolved   bool
+	SLABreached          bool
+	OverdueFollowUp      bool
+	MissingDocumentation bool
 }
 type Owner struct {
 	ID           string     `json:"id"`
@@ -57,8 +76,8 @@ type UpdateInput struct {
 	Version                                     int
 }
 type ListInput struct {
-	Page, Limit                                int
-	Search, Status, Type, OwnerID, Sort, Order string
+	Page, Limit                                        int
+	Search, Status, Type, OwnerID, Health, Sort, Order string
 }
 type Service struct{ db *gorm.DB }
 
@@ -106,6 +125,9 @@ func (s *Service) List(in ListInput, userID string, scoped bool) ([]Client, int6
 	if in.OwnerID != "" {
 		q = q.Where("EXISTS (SELECT 1 FROM client_owners co WHERE co.client_id = c.id AND co.user_id = ? AND co.unassigned_at IS NULL)", in.OwnerID)
 	}
+	if in.Health != "" {
+		q = q.Where(healthClassificationSQL("c")+" = ?", in.Health)
+	}
 	var total int64
 	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -120,6 +142,9 @@ func (s *Service) List(in ListInput, userID string, scoped bool) ([]Client, int6
 	}
 	var clients []Client
 	err := q.Order(sort + " " + order).Offset((in.Page - 1) * in.Limit).Limit(in.Limit).Find(&clients).Error
+	if err == nil {
+		err = s.addHealth(clients)
+	}
 	return clients, total, err
 }
 func (s *Service) Get(id, userID string, scoped bool) (Client, error) {
@@ -132,7 +157,93 @@ func (s *Service) Get(id, userID string, scoped bool) (Client, error) {
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return client, ErrNotFound
 	}
+	if err == nil {
+		client.Health, err = s.Health(id)
+	}
 	return client, err
+}
+func (s *Service) Health(clientID string) (*Health, error) {
+	var input healthInputs
+	err := s.db.Raw(healthInputsSQL("WHERE c.id = ?"), clientID).Scan(&input).Error
+	if err != nil {
+		return nil, err
+	}
+	if input.ID == "" {
+		return nil, ErrNotFound
+	}
+	return calculateHealth(input, time.Now().UTC()), nil
+}
+func (s *Service) addHealth(clients []Client) error {
+	if len(clients) == 0 {
+		return nil
+	}
+	ids := make([]string, len(clients))
+	for i := range clients {
+		ids[i] = clients[i].ID
+	}
+	var inputs []healthInputs
+	if err := s.db.Raw(healthInputsSQL("WHERE c.id IN ?"), ids).Scan(&inputs).Error; err != nil {
+		return err
+	}
+	byID := make(map[string]healthInputs, len(inputs))
+	for _, input := range inputs {
+		byID[input.ID] = input
+	}
+	now := time.Now().UTC()
+	for i := range clients {
+		clients[i].Health = calculateHealth(byID[clients[i].ID], now)
+	}
+	return nil
+}
+func calculateHealth(in healthInputs, now time.Time) *Health {
+	health := &Health{Score: 100, CalculatedAt: now}
+	for _, factor := range []struct {
+		applies     bool
+		code        string
+		impact      int
+		description string
+	}{
+		{in.CriticalUnresolved, "CRITICAL_UNRESOLVED", -20, "Critical unresolved issue"},
+		{in.SLABreached, "SLA_BREACH", -15, "Issue breached its SLA"},
+		{in.OverdueFollowUp, "OVERDUE_FOLLOW_UP", -10, "Follow-up is overdue"},
+		{in.MissingDocumentation, "MISSING_DOCUMENTATION", -5, "Published client impact has no published documentation"},
+	} {
+		if factor.applies {
+			health.Score += factor.impact
+			health.Factors = append(health.Factors, Factor{factor.code, factor.impact, factor.description})
+		}
+	}
+	if health.Score < 0 {
+		health.Score = 0
+	}
+	if health.Score >= 80 {
+		health.Classification = "HEALTHY"
+	} else if health.Score >= 60 {
+		health.Classification = "ATTENTION"
+	} else {
+		health.Classification = "AT_RISK"
+	}
+	return health
+}
+func healthInputsSQL(where string) string {
+	return `SELECT c.id,
+		EXISTS (SELECT 1 FROM issues i WHERE i.client_id = c.id AND i.severity = 'CRITICAL' AND i.status NOT IN ('CLOSED', 'CANCELLED')) AS critical_unresolved,
+		EXISTS (SELECT 1 FROM issues i JOIN sla_policies sp ON sp.severity = i.severity AND sp.is_active WHERE i.client_id = c.id AND i.status NOT IN ('CLOSED', 'CANCELLED') AND i.reported_at + sp.resolution_minutes * INTERVAL '1 minute' < NOW()) AS sla_breached,
+		EXISTS (SELECT 1 FROM client_follow_ups f WHERE f.client_id = c.id AND f.status IN ('OPEN', 'IN_PROGRESS') AND f.due_at < NOW()) AS overdue_follow_up,
+		EXISTS (SELECT 1 FROM release_impacts ri JOIN releases r ON r.id = ri.release_id AND r.status = 'PUBLISHED' WHERE ri.client_id = c.id AND NOT EXISTS (SELECT 1 FROM release_documentations rd JOIN documentations d ON d.id = rd.documentation_id AND d.status = 'PUBLISHED' WHERE rd.release_id = r.id)) AS missing_documentation
+		FROM clients c ` + where
+}
+func healthClassificationSQL(alias string) string {
+	return `CASE WHEN (100
+		- 20 * (EXISTS (SELECT 1 FROM issues i WHERE i.client_id = ` + alias + `.id AND i.severity = 'CRITICAL' AND i.status NOT IN ('CLOSED', 'CANCELLED')))::int
+		- 15 * (EXISTS (SELECT 1 FROM issues i JOIN sla_policies sp ON sp.severity = i.severity AND sp.is_active WHERE i.client_id = ` + alias + `.id AND i.status NOT IN ('CLOSED', 'CANCELLED') AND i.reported_at + sp.resolution_minutes * INTERVAL '1 minute' < NOW()))::int
+		- 10 * (EXISTS (SELECT 1 FROM client_follow_ups f WHERE f.client_id = ` + alias + `.id AND f.status IN ('OPEN', 'IN_PROGRESS') AND f.due_at < NOW()))::int
+		- 5 * (EXISTS (SELECT 1 FROM release_impacts ri JOIN releases r ON r.id = ri.release_id AND r.status = 'PUBLISHED' WHERE ri.client_id = ` + alias + `.id AND NOT EXISTS (SELECT 1 FROM release_documentations rd JOIN documentations d ON d.id = rd.documentation_id AND d.status = 'PUBLISHED' WHERE rd.release_id = r.id)))::int) >= 80 THEN 'HEALTHY'
+		WHEN (100
+		- 20 * (EXISTS (SELECT 1 FROM issues i WHERE i.client_id = ` + alias + `.id AND i.severity = 'CRITICAL' AND i.status NOT IN ('CLOSED', 'CANCELLED')))::int
+		- 15 * (EXISTS (SELECT 1 FROM issues i JOIN sla_policies sp ON sp.severity = i.severity AND sp.is_active WHERE i.client_id = ` + alias + `.id AND i.status NOT IN ('CLOSED', 'CANCELLED') AND i.reported_at + sp.resolution_minutes * INTERVAL '1 minute' < NOW()))::int
+		- 10 * (EXISTS (SELECT 1 FROM client_follow_ups f WHERE f.client_id = ` + alias + `.id AND f.status IN ('OPEN', 'IN_PROGRESS') AND f.due_at < NOW()))::int
+		- 5 * (EXISTS (SELECT 1 FROM release_impacts ri JOIN releases r ON r.id = ri.release_id AND r.status = 'PUBLISHED' WHERE ri.client_id = ` + alias + `.id AND NOT EXISTS (SELECT 1 FROM release_documentations rd JOIN documentations d ON d.id = rd.documentation_id AND d.status = 'PUBLISHED' WHERE rd.release_id = r.id)))::int) >= 60 THEN 'ATTENTION' ELSE 'AT_RISK' END`
 }
 func (s *Service) Update(id string, in UpdateInput) (Client, error) {
 	var client Client

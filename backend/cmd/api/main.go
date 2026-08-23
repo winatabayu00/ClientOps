@@ -72,6 +72,7 @@ func main() {
 	clientRoutes.GET("", auth.Require("client.read"), clientHandler.List)
 	clientRoutes.POST("", auth.Require("client.create"), clientHandler.Create)
 	clientRoutes.GET("/:id", auth.Require("client.read"), clientHandler.Get)
+	clientRoutes.GET("/:id/health", auth.Require("client.read"), clientHandler.Health)
 	clientRoutes.PATCH("/:id", auth.Require("client.update"), clientHandler.Update)
 	clientRoutes.POST("/:id/archive", auth.Require("client.archive"), clientHandler.Archive)
 	clientRoutes.GET("/:id/owners", auth.Require("client.read"), clientHandler.Owners)

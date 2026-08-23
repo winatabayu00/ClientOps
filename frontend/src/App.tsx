@@ -356,7 +356,9 @@ type Client = Item & {
   province?: string;
   city?: string;
   address?: string;
+	  health?: Health;
 };
+type Health = { score: number; classification: "HEALTHY" | "ATTENTION" | "AT_RISK"; factors: { code: string; impact: number; description: string }[]; calculated_at: string };
 type Page<T> = { data: T[] };
 const clientTypes = [
   "ELEMENTARY",
@@ -445,6 +447,13 @@ function Clients() {
             ))}
           </select>
         </label>
+        <label>
+          Health
+          <select name="health" defaultValue={params.get("health") || ""}>
+            <option value="">All health</option>
+            <option>HEALTHY</option><option>ATTENTION</option><option>AT_RISK</option>
+          </select>
+        </label>
         <button>Apply filters</button>
       </form>
       {open && (
@@ -527,7 +536,8 @@ function Clients() {
               >
                 {x.status}
               </span>
-              <span>{x.city || x.province || "Location unavailable"}</span>
+               <span>{x.city || x.province || "Location unavailable"}</span>
+						<span className={`health health-${x.health?.classification.toLowerCase()}`}>{x.health ? `${x.health.classification.replaceAll("_", " ")} ${x.health.score}/100` : "Health unavailable"}</span>
             </NavLink>
           ))}
         </div>
@@ -570,6 +580,7 @@ function ClientDetail() {
     queryKey: ["client", id, "timeline"],
     queryFn: () => get(`/clients/${id}/timeline`),
   });
+	const health = useQuery<Health>({ queryKey: ["client", id, "health"], queryFn: () => get(`/clients/${id}/health`) });
   const users = useQuery<User[]>({
     queryKey: ["users"],
     queryFn: () => get("/users"),
@@ -661,6 +672,7 @@ function ClientDetail() {
         </div>
       </div>
       {error && <p role="alert">{error}</p>}
+			{health.isPending ? <p role="status">Calculating health...</p> : health.isError ? <p role="alert">{message(health.error)}</p> : health.data && <section className="health-card" aria-label="Client health"><div><p className="eyebrow">Client health</p><strong>{health.data.score}<small>/100</small></strong><span className={`health health-${health.data.classification.toLowerCase()}`}>{health.data.classification.replaceAll("_", " ")}</span></div><ul>{health.data.factors.length ? health.data.factors.map(f => <li key={f.code}><b>{f.impact}</b> {f.description}</li>) : <li>No current risk factors.</li>}</ul></section>}
       {editing && (
         <form className="card client-edit" onSubmit={save}>
           <label>

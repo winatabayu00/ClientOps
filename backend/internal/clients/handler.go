@@ -26,7 +26,12 @@ func scoped(c *gin.Context) bool {
 func (h *Handler) List(c *gin.Context) {
 	page, limit := page(c)
 	user := auth.CurrentUser(c)
-	clients, total, err := h.service.List(ListInput{Page: page, Limit: limit, Search: c.Query("search"), Status: c.Query("status"), Type: c.Query("type"), OwnerID: c.Query("owner_id"), Sort: c.Query("sort"), Order: c.Query("order")}, user.ID, scoped(c))
+	health := c.Query("health")
+	if health != "" && health != "HEALTHY" && health != "ATTENTION" && health != "AT_RISK" {
+		api.Error(c, 422, "VALIDATION_ERROR", "Validation failed", nil)
+		return
+	}
+	clients, total, err := h.service.List(ListInput{Page: page, Limit: limit, Search: c.Query("search"), Status: c.Query("status"), Type: c.Query("type"), OwnerID: c.Query("owner_id"), Health: health, Sort: c.Query("sort"), Order: c.Query("order")}, user.ID, scoped(c))
 	if err != nil {
 		api.InternalError(c)
 		return
@@ -57,6 +62,22 @@ func (h *Handler) Get(c *gin.Context) {
 		return
 	}
 	api.Success(c, 200, client, "Success")
+}
+func (h *Handler) Health(c *gin.Context) {
+	if !validUUID(c.Param("id")) {
+		api.Error(c, 422, "VALIDATION_ERROR", "Validation failed", nil)
+		return
+	}
+	if _, err := h.service.Get(c.Param("id"), auth.CurrentUser(c).ID, scoped(c)); err != nil {
+		writeError(c, err)
+		return
+	}
+	health, err := h.service.Health(c.Param("id"))
+	if err != nil {
+		api.InternalError(c)
+		return
+	}
+	api.Success(c, 200, health, "Success")
 }
 func (h *Handler) Update(c *gin.Context) {
 	var in UpdateInput
