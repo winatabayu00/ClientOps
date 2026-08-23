@@ -65,7 +65,9 @@ func (s *Service) Login(email, password, userAgent, ip string) (User, string, st
 	if err != nil {
 		return User{}, "", "", err
 	}
-	if err = s.db.Exec(`INSERT INTO auth_sessions (user_id, refresh_token_hash, expires_at, user_agent, ip_address) VALUES (?, ?, ?, ?, NULLIF(?, '')::inet)`, user.ID, tokenHash(refresh), time.Now().Add(30*24*time.Hour), userAgent, ip).Error; err != nil {
+	if err = s.db.Exec(`INSERT INTO auth_sessions (user_id, refresh_token_hash, expires_at, user_agent, ip_address) VALUES (?, ?, ?, ?, NULLIF(?, '')::inet)
+		ON CONFLICT (user_id, user_agent) WHERE revoked_at IS NULL
+		DO UPDATE SET refresh_token_hash = EXCLUDED.refresh_token_hash, expires_at = EXCLUDED.expires_at, ip_address = EXCLUDED.ip_address, last_used_at = NOW()`, user.ID, tokenHash(refresh), time.Now().Add(30*24*time.Hour), userAgent, ip).Error; err != nil {
 		return User{}, "", "", err
 	}
 	return user, access, refresh, nil

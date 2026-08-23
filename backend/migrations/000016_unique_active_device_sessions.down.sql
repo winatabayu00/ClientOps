@@ -1,0 +1,1 @@
+DROP INDEX auth_sessions_active_device_idx;
