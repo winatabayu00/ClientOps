@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { auth, get, message, type User } from "../api";
+import { auth, get, message } from "../api";
 import { queryClient } from "../lib/query-client";
 import { permissions } from "../lib/utils";
 import { Field, Input } from "../components/ui/field";
@@ -94,36 +94,52 @@ export function Shell() {
       </main>
     );
   if (me.isError) return <Navigate to="/login" replace />;
-  const links: [string, string, string[]][] = [
-    ["dashboard", "dashboard", []],
-    ["clients", "clients", ["client.read"]],
-    ["issues", "issues", ["issue.read"]],
-    ["feature requests", "feature-requests", ["feature_request.read"]],
-    ["releases", "releases", ["release.read"]],
-    ["handoffs", "handoffs", ["release.read", "issue.follow_up"]],
-    ["follow ups", "follow-ups", ["client_followup.create", "client_followup.complete"]],
-    ["documentation", "documentation", ["documentation.read"]],
-    ["management", "management", ["user.manage", "role.manage", "audit.read"]],
+  const groups: [string, [string, string, string[]][]][] = [
+    ["Workspace", [["dashboard", "dashboard", []]]],
+    ["Client delivery", [
+      ["clients", "clients", ["client.read"]],
+      ["issues", "issues", ["issue.read"]],
+      ["feature requests", "feature-requests", ["feature_request.read"]],
+    ]],
+    ["Release operations", [
+      ["releases", "releases", ["release.read"]],
+      ["handoffs", "handoffs", ["release.read", "issue.follow_up"]],
+      ["follow ups", "follow-ups", ["client_followup.create", "client_followup.complete"]],
+    ]],
+    ["Knowledge", [["documentation", "documentation", ["documentation.read"]]]],
+    ["Administration", [["management", "management", ["user.manage", "role.manage", "audit.read"]]]],
   ];
   return (
     <div className="app-shell">
-      <header className="app-header">
+      <aside className="app-sidebar">
         <NavLink className="brand" to="/dashboard">
           ClientOps
         </NavLink>
         <nav aria-label="Main navigation">
-          {links
-            .filter(
-              ([, , needed]) =>
-                !needed.length || needed.some((p) => permissions(me.data, p)),
-            )
-            .map(([label, path]) => (
-              <NavLink key={path} to={`/${path}`}>
-                {label}
-              </NavLink>
-            ))}
+          {groups.map(([group, links]) => {
+            const visible = links.filter(
+              ([, , needed]) => !needed.length || needed.some((p) => permissions(me.data, p)),
+            );
+            if (!visible.length) return null;
+            return (
+              <details key={group} open>
+                <summary>{group}</summary>
+                <div>
+                  {visible.map(([label, path]) => (
+                    <NavLink key={path} to={`/${path}`}>
+                      {label}
+                    </NavLink>
+                  ))}
+                </div>
+              </details>
+            );
+          })}
         </nav>
-        <div className="account">
+      </aside>
+      <section className="app-content">
+        <header className="app-header">
+          <p>Operational delivery workspace</p>
+          <div className="account">
           <NavLink to="/notifications" aria-label="Notifications">
             Bell{unread.data?.count ? ` (${unread.data.count})` : ""}
           </NavLink>
@@ -131,11 +147,12 @@ export function Shell() {
           <button onClick={() => logout.mutate()} disabled={logout.isPending}>
             Sign out
           </button>
-        </div>
-      </header>
-      <main>
-        <Outlet context={me.data} />
-      </main>
+          </div>
+        </header>
+        <main>
+          <Outlet context={me.data} />
+        </main>
+      </section>
     </div>
   );
 }
