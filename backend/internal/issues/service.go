@@ -84,10 +84,11 @@ type TransitionInput struct {
 }
 type Service struct {
 	db               *gorm.DB
+	store            *ObjectStore
 	assignmentNotify func(userID, kind, title, message, entityType, entityID string) error
 }
 
-func NewService(db *gorm.DB) *Service { return &Service{db: db} }
+func NewService(db *gorm.DB, stores ...*ObjectStore) *Service { s := &Service{db: db}; if len(stores) > 0 { s.store = stores[0] }; return s }
 
 func (s *Service) SetAssignmentNotifier(notify func(string, string, string, string, string, string) error) {
 	s.assignmentNotify = notify

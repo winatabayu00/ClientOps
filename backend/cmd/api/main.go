@@ -98,7 +98,11 @@ func main() {
 	featureRequestRoutes.POST("/:id/mark-duplicate", auth.Require("feature_request.merge"), featureRequestHandler.Action("DUPLICATE"))
 	notificationService := notifications.NewService(db)
 	notificationHandler := notifications.NewHandler(notificationService)
-	issueService := issues.NewService(db)
+	objectStore, err := issues.NewObjectStore(cfg)
+	if err != nil {
+		log.Fatal(err)
+	}
+	issueService := issues.NewService(db, objectStore)
 	issueService.SetAssignmentNotifier(notificationService.Create)
 	issueHandler := issues.NewHandler(issueService)
 	issueRoutes := apiV1.Group("/issues", authHandler.Authenticate(), authHandler.CSRFProtection())
@@ -119,6 +123,10 @@ func main() {
 	issueRoutes.POST("/:id/work-state", auth.Require("issue.manage_work_state"), issueHandler.SetWorkState)
 	issueRoutes.GET("/:id/history", auth.Require("issue.read"), issueHandler.History)
 	issueRoutes.GET("/:id/work-history", auth.Require("issue.read"), issueHandler.WorkHistory)
+	issueRoutes.GET("/:id/attachments", auth.Require("issue.read"), issueHandler.ListAttachments)
+	issueRoutes.POST("/:id/attachments", auth.Require("issue.update"), issueHandler.UploadAttachment)
+	issueRoutes.GET("/:id/attachments/:attachmentID/download", auth.Require("issue.read"), issueHandler.DownloadAttachment)
+	issueRoutes.DELETE("/:id/attachments/:attachmentID", auth.Require("issue.update"), issueHandler.DeleteAttachment)
 	notificationRoutes := apiV1.Group("/notifications", authHandler.Authenticate(), authHandler.CSRFProtection())
 	notificationRoutes.GET("", notificationHandler.List)
 	notificationRoutes.GET("/unread-count", notificationHandler.UnreadCount)

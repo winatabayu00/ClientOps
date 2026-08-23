@@ -23,6 +23,38 @@ tags:
   - name: Notifications
   - name: Audit
 paths:
+  /issues/{id}/attachments:
+    get:
+      tags: [Issues]
+      summary: List issue attachments
+      description: Requires `issue.read` and issue resource access.
+      security: [{ AccessCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      responses: { '200': { description: Attachments. }, '401': { $ref: '#/components/responses/AuthenticationError' }, '403': { $ref: '#/components/responses/PermissionError' }, '404': { $ref: '#/components/responses/NotFoundError' } }
+    post:
+      tags: [Issues]
+      summary: Upload issue attachment
+      description: Requires `issue.update`, issue resource access, and `X-CSRF-Token`. PNG, JPEG, PDF, and text files only; 10 MB maximum.
+      security: [{ AccessCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/ID' }, { $ref: '#/components/parameters/CSRFToken' }]
+      requestBody: { required: true, content: { multipart/form-data: { schema: { type: object, required: [file], properties: { file: { type: string, format: binary } } } } } }
+      responses: { '201': { description: Attachment uploaded. }, '401': { $ref: '#/components/responses/AuthenticationError' }, '403': { $ref: '#/components/responses/PermissionError' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /issues/{id}/attachments/{attachmentID}/download:
+    get:
+      tags: [Issues]
+      summary: Download issue attachment
+      description: Requires `issue.read` and issue resource access.
+      security: [{ AccessCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/ID' }, { name: attachmentID, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { '200': { description: Attachment bytes. }, '401': { $ref: '#/components/responses/AuthenticationError' }, '403': { $ref: '#/components/responses/PermissionError' }, '404': { $ref: '#/components/responses/NotFoundError' } }
+  /issues/{id}/attachments/{attachmentID}:
+    delete:
+      tags: [Issues]
+      summary: Delete issue attachment
+      description: Requires `issue.update`, issue resource access, and `X-CSRF-Token`.
+      security: [{ AccessCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/ID' }, { name: attachmentID, in: path, required: true, schema: { type: string, format: uuid } }, { $ref: '#/components/parameters/CSRFToken' }]
+      responses: { '204': { description: Attachment deleted. }, '401': { $ref: '#/components/responses/AuthenticationError' }, '403': { $ref: '#/components/responses/PermissionError' }, '404': { $ref: '#/components/responses/NotFoundError' } }
   /audit-logs:
     get:
       tags: [Audit]

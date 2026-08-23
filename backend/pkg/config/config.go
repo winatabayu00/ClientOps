@@ -12,6 +12,10 @@ type Config struct {
 	AccessCookieName  string
 	RefreshCookieName string
 	CookieSecure      bool
+	MinIOEndpoint     string
+	MinIOAccessKey    string
+	MinIOSecretKey    string
+	MinIOBucket       string
 }
 
 func Load() (Config, error) {
@@ -22,12 +26,19 @@ func Load() (Config, error) {
 		AccessCookieName:  "clientops_access",
 		RefreshCookieName: "clientops_refresh",
 		CookieSecure:      os.Getenv("COOKIE_SECURE") == "true",
+		MinIOEndpoint:     os.Getenv("MINIO_ENDPOINT"),
+		MinIOAccessKey:    os.Getenv("MINIO_ACCESS_KEY"),
+		MinIOSecretKey:    os.Getenv("MINIO_SECRET_KEY"),
+		MinIOBucket:       value("MINIO_BUCKET", "clientops"),
 	}
 	if cfg.DatabaseURL == "" {
 		return Config{}, fmt.Errorf("DATABASE_URL is required")
 	}
 	if cfg.AccessTokenKey == "" {
 		return Config{}, fmt.Errorf("ACCESS_TOKEN_KEY is required")
+	}
+	if cfg.MinIOEndpoint == "" || cfg.MinIOAccessKey == "" || cfg.MinIOSecretKey == "" {
+		return Config{}, fmt.Errorf("MINIO_ENDPOINT, MINIO_ACCESS_KEY, and MINIO_SECRET_KEY are required")
 	}
 	return cfg, nil
 }

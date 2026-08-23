@@ -173,6 +173,69 @@ func (h *Handler) WorkHistory(c *gin.Context) {
 	}
 	api.Success(c, 200, gin.H{"states": states, "summary": summary}, "Success")
 }
+func (h *Handler) ListAttachments(c *gin.Context) {
+	if !h.authorizeAttachment(c) {
+		return
+	}
+	out, err := h.service.ListAttachments(c.Param("id"))
+	if err != nil {
+		api.InternalError(c)
+		return
+	}
+	api.Success(c, http.StatusOK, out, "Success")
+}
+func (h *Handler) UploadAttachment(c *gin.Context) {
+	if !h.authorizeAttachment(c) {
+		return
+	}
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxAttachmentBytes+1024)
+	file, err := c.FormFile("file")
+	if err != nil {
+		invalid(c)
+		return
+	}
+	out, err := h.service.UploadAttachment(c.Param("id"), auth.CurrentUser(c).ID, api.RequestID(c), file)
+	if err != nil {
+		writeError(c, err)
+		return
+	}
+	api.Success(c, http.StatusCreated, out, "Attachment uploaded")
+}
+func (h *Handler) DownloadAttachment(c *gin.Context) {
+	if !h.authorizeAttachment(c) || !validUUID(c.Param("attachmentID")) {
+		return
+	}
+	attachment, file, err := h.service.DownloadAttachment(c.Param("id"), c.Param("attachmentID"))
+	if err != nil {
+		writeError(c, err)
+		return
+	}
+	defer file.Close()
+	c.Header("Content-Type", attachment.ContentType)
+	c.Header("Content-Disposition", "attachment; filename=\""+attachment.Filename+"\"")
+	c.DataFromReader(http.StatusOK, attachment.SizeBytes, attachment.ContentType, file, nil)
+}
+func (h *Handler) DeleteAttachment(c *gin.Context) {
+	if !h.authorizeAttachment(c) || !validUUID(c.Param("attachmentID")) {
+		return
+	}
+	if err := h.service.DeleteAttachment(c.Param("id"), c.Param("attachmentID"), auth.CurrentUser(c).ID, api.RequestID(c)); err != nil {
+		writeError(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+func (h *Handler) authorizeAttachment(c *gin.Context) bool {
+	if !validUUID(c.Param("id")) {
+		invalid(c)
+		return false
+	}
+	if _, err := h.service.Get(c.Param("id"), auth.CurrentUser(c).ID, scoped(c)); err != nil {
+		writeError(c, err)
+		return false
+	}
+	return true
+}
 func pagination(c *gin.Context) (int, int) {
 	p, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	l, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
@@ -217,6 +280,8 @@ func writeError(c *gin.Context, err error) {
 		api.Error(c, 409, "RELEASE_REFERENCE_REQUIRED", "Release reference is required", nil)
 	case errors.Is(err, ErrOperationalClosure):
 		api.Error(c, 409, "FOLLOW_UP_NOT_COMPLETED", "Operational handoff must be completed", nil)
+	case errors.Is(err, ErrInvalidAttachment):
+		api.Error(c, 422, "VALIDATION_ERROR", "Attachment must be a PNG, JPEG, PDF, or text file no larger than 10 MB", nil)
 	default:
 		api.Error(c, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "An unexpected error occurred", nil)
 	}

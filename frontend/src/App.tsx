@@ -26,6 +26,7 @@ import {
   patch,
   post,
   put,
+	  upload,
   type Envelope,
   type Session,
   type User,
@@ -47,9 +48,11 @@ type Overview = {
   handoffs?: { pending?: unknown };
 };
 type Notification = { id: string; title: string; message: string; read_at: string | null; created_at: string; entity_type?: string; entity_id?: string };
+type Attachment = { id: string; filename: string; content_type: string; size_bytes: number; created_at: string };
 const client = new QueryClient({
   defaultOptions: { queries: { retry: false } },
 });
+const apiBase = import.meta.env.VITE_API_URL || "/api/v1";
 const label = (x: Item) =>
   x.title || x.name || x.code || x.issue_number || x.id;
 const permissions = (user: User | undefined, permission: string) =>
@@ -1109,6 +1112,7 @@ function IssueDetail() {
 	const workHistory = useQuery<{ states: WorkStateHistory[]; summary: Record<string, number> }>({
 		queryKey: ["issue", id, "work-history"], queryFn: () => get(`/issues/${id}/work-history`),
 	});
+  const attachments = useQuery<Attachment[]>({ queryKey: ["issue", id, "attachments"], queryFn: () => get(`/issues/${id}/attachments`) });
   const clients = useQuery<Client[]>({
     queryKey: ["clients", "issue-selector"],
     queryFn: () => get("/clients?limit=100"),
@@ -1127,6 +1131,7 @@ function IssueDetail() {
     cache.invalidateQueries({ queryKey: ["issue", id] });
     cache.invalidateQueries({ queryKey: ["issue", id, "history"] });
 		cache.invalidateQueries({ queryKey: ["issue", id, "work-history"] });
+		cache.invalidateQueries({ queryKey: ["issue", id, "attachments"] });
     cache.invalidateQueries({ queryKey: ["issues"] });
   }
   const update = useMutation({
@@ -1153,6 +1158,8 @@ function IssueDetail() {
     },
     onError: (e) => setError(message(e)),
   });
+  const attachment = useMutation({ mutationFn: (file: File) => upload(`/issues/${id}/attachments`, file), onSuccess: refresh, onError: (e) => setError(message(e)) });
+  const removeAttachment = useMutation({ mutationFn: (attachmentID: string) => del(`/issues/${id}/attachments/${attachmentID}`), onSuccess: refresh, onError: (e) => setError(message(e)) });
   if (q.isPending) return <p role="status">Loading issue...</p>;
   if (q.isError || !q.data) return <p role="alert">{message(q.error)}</p>;
   const issue = q.data;
@@ -1283,6 +1290,11 @@ function IssueDetail() {
             </div>
           </dl>
         </section>
+		<section className="panel">
+		  <h2>Attachments</h2>
+		  {permissions(user, "issue.update") && <label>Upload PNG, JPEG, PDF, or text file (10 MB max)<input type="file" accept="image/png,image/jpeg,application/pdf,text/plain" disabled={attachment.isPending} onChange={e => { const file = e.currentTarget.files?.[0]; if (file) attachment.mutate(file); e.currentTarget.value = "" }} /></label>}
+		  {attachments.isPending ? <p role="status">Loading attachments...</p> : attachments.isError ? <p role="alert">{message(attachments.error)}</p> : attachments.data?.length ? <ul>{attachments.data.map(x => <li key={x.id}><a href={`${apiBase}/issues/${id}/attachments/${x.id}/download`}>{x.filename}</a> ({Math.ceil(x.size_bytes / 1024)} KB) {permissions(user, "issue.update") && <button onClick={() => window.confirm(`Delete ${x.filename}?`) && removeAttachment.mutate(x.id)} disabled={removeAttachment.isPending}>Delete</button>}</li>)}</ul> : <p>No attachments.</p>}
+		</section>
         <section className="panel">
           <h2>Workflow actions</h2>
           {actions.length ? (

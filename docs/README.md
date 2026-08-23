@@ -186,6 +186,8 @@ Canonical clarifications already supported by the detailed documents:
 - Critical backend audit is P0; audit browsing UI is P1.
 - Redis starts when rate limiting or worker use requires it. MinIO starts with attachments.
 
+Issue attachments use private MinIO objects. API endpoints enforce issue access, accept PNG, JPEG, PDF, and text files up to 10 MB, and use generated UUID object keys.
+
 ## Progress Rule
 
 Use one status for every tracked item:

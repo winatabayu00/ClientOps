@@ -33,6 +33,7 @@ export const post = <T>(url: string, data?: unknown) => api.post<Envelope<T>>(ur
 export const patch = <T>(url: string, data?: unknown) => api.patch<Envelope<T>>(url, data).then(r => r.data.data)
 export const put = <T>(url: string, data?: unknown) => api.put<Envelope<T>>(url, data).then(r => r.data.data)
 export const del = (url: string) => api.delete(url)
+export const upload = <T>(url: string, file: File) => { const data = new FormData(); data.append('file', file); return api.post<Envelope<T>>(url, data).then(r => r.data.data) }
 export const auth = {
   me: () => get<User>('/auth/me'),
   login: (email: string, password: string) => post<User>('/auth/login', { email, password }),
