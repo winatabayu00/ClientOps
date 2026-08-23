@@ -1278,67 +1278,90 @@ This scenario demonstrates the main product thesis:
 
 ---
 
-## Development Setup
-
-Implementation has not started yet.
-
-The final development setup will follow approximately:
+## Installation
 
 ```bash
-git clone <repository>
-cd clientops
+git clone git@github.com:winatabayu00/school-success-platform.git
+cd school-success-platform
 
 cp .env.example .env
-
-docker compose up
 ```
 
-Migration, seed, testing, and application URLs will be added here once the corresponding commands exist.
+Edit `.env` to set `ACCESS_TOKEN_KEY`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and `MINIO_SECRET_KEY` before first run. The bundled defaults are development-only placeholders.
 
-This section intentionally does not document commands that have not yet been implemented.
+## Environment Configuration
 
----
+Key variables in `.env`:
 
-## Planned Developer Commands
+| Variable | Purpose |
+| --- | --- |
+| `APP_ENV` | `development` / `production` |
+| `APP_PORT` | API port (default `8080`) |
+| `FRONTEND_ORIGIN` | CORS origin of the frontend (default `http://localhost:5173`) |
+| `VITE_API_BASE_URL` | Frontend API base URL |
+| `DATABASE_URL` | PostgreSQL DSN used by the API, worker, and seed |
+| `ACCESS_TOKEN_KEY` | HMAC signing key for access tokens — set to a long random value |
+| `COOKIE_SECURE` | `false` locally, `true` in production over HTTPS |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` | Initial administrator created by `make seed` |
+| `REDIS_ADDR` | Redis address for queue and rate limiting |
+| `SMTP_URL` | Optional; empty disables email while retaining in-app notifications |
+| `MINIO_ENDPOINT` / `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` / `MINIO_BUCKET` | Object storage for attachments |
 
-The repository is expected to expose root-level commands such as:
+`.env` and real credentials must never be committed.
+
+## Migration
+
+```bash
+make migrate-up     # apply all pending migrations
+make migrate-down   # roll back the last migration
+make migrate-fresh  # drop volumes and rebuild schema from empty
+```
+
+Migrations live in `backend/migrations/` as paired `.up.sql` / `.down.sql` files and reproduce the full schema from an empty database. The API does not rely on GORM `AutoMigrate`.
+
+## Running the Application
+
+```bash
+make up    # docker compose up --build (postgres, redis, minio, api, worker)
+make seed  # create roles, permissions, and the initial administrator
+make down  # stop containers
+```
+
+| Service | URL |
+| --- | --- |
+| Frontend | `http://localhost:5173` |
+| API | `http://localhost:8080` |
+| Swagger UI | `http://localhost:8080/api/docs` |
+| MinIO console | `http://localhost:9001` |
+
+Health: `http://localhost:8080/health`. Readiness: `http://localhost:8080/ready`.
+
+## Developer Commands
 
 ```text
-make up
-make down
+make up              start the stack
+make down            stop the stack
 
-make migrate-up
-make migrate-down
+make migrate-up      apply migrations
+make migrate-down    roll back one migration
+make migrate-fresh   reset the database
+make seed            seed roles, permissions, and admin
 
-make seed
+make backend-test    go test ./...
+make backend-vet     go vet ./...
+make frontend-build  npm run build
+make frontend-e2e    Playwright end-to-end suite
 
-make backend-test
-make frontend-test
-make test
-
-make lint
-make build
+make openapi-check   validate docs/api/openapi.yaml
+make test            vet + backend tests + frontend build + OpenAPI check
+make build           alias for make test
 ```
-
-The README will only mark these commands as available after they are implemented and verified.
-
----
 
 ## Demo Accounts
 
-Demo credentials will be added after authentication and seed data are implemented.
+`make seed` creates a single `SUPER_ADMIN` from `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME`. It also upserts the five roles (`SUPER_ADMIN`, `OPS_MANAGER`, `OPS_STAFF`, `PRODUCT`, `ENGINEER`) and all permissions, granting every permission to `SUPER_ADMIN`.
 
-Planned demo roles:
-
-```text
-Super Admin
-Operations Manager
-Operations Staff
-Product
-Engineer
-```
-
-No production credentials will be committed to the repository.
+No hardcoded demo credentials are committed. Log in as the seeded administrator and create additional users with the other roles through the management UI.
 
 ---
 
@@ -1605,7 +1628,7 @@ The application includes:
 * API documentation
 * Engineering trade-offs
 
-## These areas directly align with the take-home requirements.
+These areas directly align with the take-home requirements.
 
 ## Final Product Statement
 
