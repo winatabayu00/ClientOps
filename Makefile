@@ -1,4 +1,4 @@
-.PHONY: up down migrate-up migrate-down migrate-fresh seed backend-test frontend-build build
+.PHONY: up down migrate-up migrate-down migrate-fresh seed backend-test frontend-build test build
 
 up:
 	docker compose up --build
@@ -26,4 +26,6 @@ backend-test:
 frontend-build:
 	cd frontend && npm run build
 
-build: backend-test frontend-build
+test: backend-test frontend-build
+
+build: test

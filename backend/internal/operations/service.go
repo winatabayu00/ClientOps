@@ -90,22 +90,18 @@ func (s *Service) CompleteHandoff(id, actor, request string, manager bool) (Hand
 		if !manager && out.OpsOwnerID != actor {
 			return ErrAccess
 		}
-		if out.Status != "ACKNOWLEDGED" && out.Status != "FOLLOWED_UP" {
-			return ErrState
-		}
 		var docs int64
-		tx.Table("release_documentations rd").Joins("JOIN documentations d ON d.id=rd.documentation_id AND d.status='PUBLISHED'").Where("rd.release_id=?", out.ReleaseID).Count(&docs)
-		if docs == 0 {
-			return ErrDocumentation
+		if err := tx.Table("release_documentations rd").Joins("JOIN documentations d ON d.id=rd.documentation_id AND d.status='PUBLISHED'").Where("rd.release_id=?", out.ReleaseID).Count(&docs).Error; err != nil {
+			return err
 		}
+		var followUps int64
 		if out.RequiresFollowUp {
-			var n int64
-			if err := tx.Table("client_follow_ups").Where("handoff_id=? AND status='COMPLETED'", id).Count(&n).Error; err != nil {
+			if err := tx.Table("client_follow_ups").Where("handoff_id=? AND status='COMPLETED'", id).Count(&followUps).Error; err != nil {
 				return err
 			}
-			if n == 0 {
-				return ErrFollowUp
-			}
+		}
+		if err := canCompleteHandoff(out.Status, out.RequiresFollowUp, docs, followUps); err != nil {
+			return err
 		}
 		before := out
 		now := time.Now()
@@ -115,6 +111,18 @@ func (s *Service) CompleteHandoff(id, actor, request string, manager bool) (Hand
 		return audit(tx, actor, "HANDOFF_COMPLETED", id, before, out, request)
 	})
 	return out, err
+}
+func canCompleteHandoff(status string, requiresFollowUp bool, publishedDocuments, completedFollowUps int64) error {
+	if status != "ACKNOWLEDGED" && status != "FOLLOWED_UP" {
+		return ErrState
+	}
+	if publishedDocuments == 0 {
+		return ErrDocumentation
+	}
+	if requiresFollowUp && completedFollowUps == 0 {
+		return ErrFollowUp
+	}
+	return nil
 }
 func (s *Service) FollowUps(client, owner, status string) ([]FollowUp, error) {
 	var out []FollowUp
