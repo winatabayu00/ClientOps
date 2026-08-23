@@ -5,7 +5,7 @@ export type Envelope<T> = { success: boolean; data: T; message: string; meta?: {
 export type User = { id: string; name: string; email: string; roles: string[]; permissions: string[] }
 export type APIError = { code?: string; details?: unknown; request_id?: string; message?: string }
 
-export const apiBase = import.meta.env.VITE_API_URL || '/api/v1'
+export const apiBase = import.meta.env.VITE_API_BASE_URL || '/api/v1'
 const api = axios.create({ baseURL: apiBase, withCredentials: true })
 let refresh: Promise<void> | null = null
 

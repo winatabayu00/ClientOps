@@ -231,7 +231,8 @@ export function FeatureRequestDetail() {
   if (q.isPending) return <p role="status">Loading feature request...</p>;
   if (q.isError || !q.data) return <p role="alert">{message(q.error)}</p>;
   const f = q.data.feature_request;
-  const requested = new Set(q.data.requesting_clients.map((x) => x.client_id));
+  const requestingClients = q.data.requesting_clients ?? [];
+  const requested = new Set(requestingClients.map((x) => x.client_id));
   const actions = (featureActions[f.status || ""] || []).filter(([, p]) =>
     permissions(user, p),
   );
@@ -344,7 +345,7 @@ export function FeatureRequestDetail() {
         <section className="panel">
           <h2>Requesting clients</h2>
           <ul className="compact-list">
-            {q.data.requesting_clients.map((x) => (
+            {requestingClients.map((x) => (
               <li key={x.client_id}>
                 <strong>{x.client_name}</strong>
                 <small>{x.client_context || "No context provided"}</small>

@@ -9,12 +9,12 @@ test("login through operational closure", { timeout: 120_000 }, async ({ page })
   page.on("dialog", (dialog) => dialog.accept("Client confirmed."));
 
   await page.goto("/login");
-  await page.getByLabel("Email").fill(process.env.ADMIN_EMAIL || "admin@example.com");
-  await page.getByLabel("Password").fill(process.env.ADMIN_PASSWORD || "local-e2e-admin-password");
+  await page.getByLabel("Email").fill(process.env.ADMIN_EMAIL || "admin@admin.com");
+  await page.getByLabel("Password").fill(process.env.ADMIN_PASSWORD || "password");
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Keep delivery visible." })).toBeVisible();
 
-  await page.getByRole("link", { name: "clients" }).click();
+  await page.getByRole("link", { name: "clients", exact: true }).click();
   await page.getByRole("button", { name: "New client" }).click();
   const clientForm = page.getByRole("form", { name: "Create client" });
   await clientForm.getByLabel("Code").fill(`A-E2E-${stamp}`);
@@ -24,7 +24,7 @@ test("login through operational closure", { timeout: 120_000 }, async ({ page })
   await clientForm.getByRole("button", { name: "Create client" }).click();
   await expect(record(page, clientName)).toBeVisible();
 
-  await page.getByRole("link", { name: "issues" }).click();
+  await page.getByRole("link", { name: "issues", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Issues" })).toBeVisible();
   await page.getByRole("button", { name: "New issue" }).click();
   const issueForm = page.getByRole("form", { name: "Create issue" });
@@ -40,7 +40,7 @@ test("login through operational closure", { timeout: 120_000 }, async ({ page })
   await transition(page, "start development");
   await transition(page, "mark qa");
 
-  await page.getByRole("link", { name: "releases" }).click();
+  await page.getByRole("link", { name: "releases", exact: true }).click();
   await page.getByRole("button", { name: "New release" }).click();
   const releaseForm = page.getByRole("form", { name: "Create release" });
   await releaseForm.getByLabel("Version").fill(`e2e-${stamp}`);
@@ -63,17 +63,17 @@ test("login through operational closure", { timeout: 120_000 }, async ({ page })
   await publishDialog.getByRole("button", { name: "Publish release" }).click();
   await expect(publishDialog).toBeHidden();
 
-  await page.getByRole("link", { name: "issues" }).click();
+  await page.getByRole("link", { name: "issues", exact: true }).click();
   await record(page, issueTitle).click();
   await transition(page, "mark released", "Release", releaseTitle);
   await expect(page.getByRole("button", { name: "mark released" })).toBeHidden();
 
-  await page.getByRole("link", { name: "handoffs" }).click();
+  await page.getByRole("link", { name: "handoffs", exact: true }).click();
   await record(page, clientName).click();
   await page.getByRole("button", { name: "Acknowledge" }).click();
   await expect(page.getByRole("button", { name: "Acknowledge" })).toBeHidden();
 
-  await page.getByRole("link", { name: "follow ups" }).click();
+  await page.getByRole("link", { name: "follow ups", exact: true }).click();
   await page.getByRole("button", { name: "New follow-up" }).click();
   const followUpForm = page.getByRole("form", { name: "Create follow-up" });
   await selectOptionContaining(followUpForm.getByLabel("Client"), clientName);
@@ -90,7 +90,7 @@ test("login through operational closure", { timeout: 120_000 }, async ({ page })
   await completeDialog.getByRole("button", { name: "Complete" }).click();
   await expect(completeDialog).toBeHidden();
 
-  await page.getByRole("link", { name: "documentation" }).click();
+  await page.getByRole("link", { name: "documentation", exact: true }).click();
   await page.getByRole("button", { name: "New document" }).click();
   const documentationForm = page.locator("form.card.create");
   await documentationForm.getByLabel("Title").fill(`E2E notes ${stamp}`);
@@ -104,12 +104,12 @@ test("login through operational closure", { timeout: 120_000 }, async ({ page })
   await page.getByRole("button", { name: "submit review" }).click();
   await page.getByRole("button", { name: "publish" }).click();
 
-  await page.getByRole("link", { name: "handoffs" }).click();
+  await page.getByRole("link", { name: "handoffs", exact: true }).click();
   await record(page, clientName).click();
   await page.getByRole("button", { name: "Complete handoff" }).click();
   await expect(page.getByText("COMPLETED", { exact: true })).toBeVisible();
 
-  await page.getByRole("link", { name: "issues" }).click();
+  await page.getByRole("link", { name: "issues", exact: true }).click();
   await record(page, issueTitle).click();
   await transition(page, "start follow up");
   await transition(page, "close", "Resolution summary", "Client confirmed resolution.");

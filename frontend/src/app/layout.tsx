@@ -107,7 +107,12 @@ export function Shell() {
       ["follow ups", "follow-ups", ["client_followup.create", "client_followup.complete"]],
     ]],
     ["Knowledge", [["documentation", "documentation", ["documentation.read"]]]],
-    ["Administration", [["management", "management", ["user.manage", "role.manage", "audit.read"]]]],
+    ["Administration", [
+      ["users", "management/users", ["user.manage"]],
+      ["roles", "management/roles", ["role.manage"]],
+      ["audit logs", "management/audit-logs", ["audit.read"]],
+      ["my sessions", "management/sessions", []],
+    ]],
   ];
   return (
     <div className="app-shell">

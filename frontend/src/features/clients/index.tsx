@@ -386,7 +386,7 @@ export function ClientDetail() {
               </span>
             </div>
             <ul>
-              {health.data.factors.length ? (
+              {health.data.factors?.length ? (
                 health.data.factors.map((f) => (
                   <li key={f.code}>
                     <b>{f.impact}</b> {f.description}

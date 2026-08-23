@@ -34,31 +34,10 @@ type AuditLog = {
 
 export function Management() {
   const user = useOutletContext<User>();
-  if (
-    !permissions(user, "user.manage") &&
-    !permissions(user, "role.manage") &&
-    !permissions(user, "audit.read")
-  )
-    return <Navigate to="/dashboard" replace />;
-  return (
-    <section>
-      <div className="title">
-        <h1>Management</h1>
-      </div>
-      <div className="detail-actions">
-        {permissions(user, "user.manage") && (
-          <NavLink to="/management/users">Users</NavLink>
-        )}
-        {permissions(user, "role.manage") && (
-          <NavLink to="/management/roles">Roles</NavLink>
-        )}
-        {permissions(user, "audit.read") && (
-          <NavLink to="/management/audit-logs">Audit logs</NavLink>
-        )}
-        <NavLink to="/management/sessions">My sessions</NavLink>
-      </div>
-    </section>
-  );
+  if (permissions(user, "user.manage")) return <Navigate to="/management/users" replace />;
+  if (permissions(user, "role.manage")) return <Navigate to="/management/roles" replace />;
+  if (permissions(user, "audit.read")) return <Navigate to="/management/audit-logs" replace />;
+  return <Navigate to="/management/sessions" replace />;
 }
 
 export function AuditLogs() {
@@ -541,7 +520,7 @@ export function RolesManagement() {
                 <strong>{r.name}</strong>
                 <small>{r.description || "No description"}</small>
               </span>
-              <span>{r.permissions.length} permissions</span>
+              <span>{r.permissions?.length || 0} permissions</span>
             </NavLink>
           ))}
         </div>
@@ -689,7 +668,7 @@ export function RoleManagementDetail() {
       ) : (
         <section className="panel">
           <h2>Permissions</h2>
-          {role.permissions.length ? (
+          {role.permissions?.length ? (
             <ul className="compact-list">
               {role.permissions.map((p) => (
                 <li key={p.id}>
