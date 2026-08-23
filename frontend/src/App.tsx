@@ -861,6 +861,9 @@ type Issue = Item & {
   description?: string;
   category?: string;
   resolution_summary?: string;
+	work_state?: string;
+	sla_status?: string;
+	sla_deadline?: string;
 };
 type History = Item & {
   from_status?: string;
@@ -869,7 +872,9 @@ type History = Item & {
   reason?: string;
   created_at?: string;
 };
+type WorkStateHistory = Item & { state?: string; reason?: string; started_at?: string; ended_at?: string };
 const severities = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
+const workStates = ["ACTIVE", "WAITING_CLIENT", "WAITING_OPS", "WAITING_PRODUCT", "WAITING_ENGINEERING", "WAITING_RELEASE", "BLOCKED"];
 const issueStatuses = [
   "REPORTED",
   "TRIAGED",
@@ -938,6 +943,19 @@ function Issues() {
             placeholder="Title or issue number"
           />
         </label>
+		<label>
+		  Work state
+		  <select name="work_state" defaultValue={params.get("work_state") || ""}>
+		    <option value="">All work states</option>
+		    {workStates.map((x) => <option key={x}>{x}</option>)}
+		  </select>
+		</label>
+		<label>
+		  SLA
+		  <select name="sla_status" defaultValue={params.get("sla_status") || ""}>
+		    <option value="">All SLA states</option><option>BREACHED</option><option>APPROACHING</option><option>ON_TRACK</option><option>MET</option>
+		  </select>
+		</label>
         <label>
           Status
           <select name="status" defaultValue={params.get("status") || ""}>
@@ -1018,6 +1036,8 @@ function Issues() {
               </span>
               <span>{String(x.status || "")}</span>
               <span className="status">{String(x.severity || "")}</span>
+			  <span>{String(x.work_state || "ACTIVE")}</span>
+			  <span>{String(x.sla_status || "NOT_SET")}</span>
               <span>{String(x.category || "Uncategorized")}</span>
             </NavLink>
           ))}
@@ -1058,6 +1078,7 @@ const actionPermissions: Record<string, string> = {
   "start-follow-up": "issue.follow_up",
   close: "issue.close",
   reopen: "issue.reopen",
+	"work-state": "issue.manage_work_state",
 };
 const statusActions: Record<string, string[]> = {
   REPORTED: ["assign", "triage"],
@@ -1084,6 +1105,9 @@ function IssueDetail() {
     queryKey: ["issue", id, "history"],
     queryFn: () => get(`/issues/${id}/history`),
   });
+	const workHistory = useQuery<{ states: WorkStateHistory[]; summary: Record<string, number> }>({
+		queryKey: ["issue", id, "work-history"], queryFn: () => get(`/issues/${id}/work-history`),
+	});
   const clients = useQuery<Client[]>({
     queryKey: ["clients", "issue-selector"],
     queryFn: () => get("/clients?limit=100"),
@@ -1101,6 +1125,7 @@ function IssueDetail() {
   function refresh() {
     cache.invalidateQueries({ queryKey: ["issue", id] });
     cache.invalidateQueries({ queryKey: ["issue", id, "history"] });
+		cache.invalidateQueries({ queryKey: ["issue", id, "work-history"] });
     cache.invalidateQueries({ queryKey: ["issues"] });
   }
   const update = useMutation({
@@ -1223,7 +1248,7 @@ function IssueDetail() {
           </button>
         </form>
       )}
-      <div className="detail-grid">
+		<div className="detail-grid">
         <section className="panel">
           <h2>Issue details</h2>
           <dl>
@@ -1231,6 +1256,8 @@ function IssueDetail() {
               <dt>Client</dt>
               <dd>{clientName}</dd>
             </div>
+			<div><dt>Work state</dt><dd>{String(issue.work_state || "ACTIVE")}</dd></div>
+			<div><dt>SLA</dt><dd>{String(issue.sla_status || "NOT_SET")}{issue.sla_deadline ? ` · ${new Date(issue.sla_deadline).toLocaleString()}` : ""}</dd></div>
             <div>
               <dt>Assignee</dt>
               <dd>{assignee}</dd>
@@ -1353,6 +1380,18 @@ function IssueDetail() {
           )}
           {action.isError && <p role="alert">{message(action.error)}</p>}
         </section>
+		<section className="panel">
+		  <h2>Work state</h2>
+		  {permissions(user, "issue.manage_work_state") && <form onSubmit={(e) => { e.preventDefault(); const data = Object.fromEntries(new FormData(e.currentTarget)); action.mutate({ name: "work-state", data: { ...data, version: issue.version } }); }}>
+			<label>State<select name="state" defaultValue={issue.work_state || "ACTIVE"}>{workStates.map((x) => <option key={x}>{x}</option>)}</select></label>
+			<label>Reason<textarea name="reason" /></label>
+			<button disabled={action.isPending}>{action.isPending ? "Updating..." : "Update work state"}</button>
+		  </form>}
+		  {workHistory.isPending ? <p>Loading...</p> : workHistory.isError ? <p role="alert">{message(workHistory.error)}</p> : <>
+			<p>Active {workHistory.data?.summary.active_minutes || 0}m · Waiting client {workHistory.data?.summary.waiting_client_minutes || 0}m · Blocked {workHistory.data?.summary.blocked_minutes || 0}m</p>
+			<ul className="compact-list">{workHistory.data?.states.map((x) => <li key={x.id}><strong>{String(x.state || "")}</strong><small>{String(x.reason || "")} {x.started_at ? `· ${new Date(String(x.started_at)).toLocaleString()}` : ""}</small></li>)}</ul>
+		  </>}
+		</section>
         <section className="panel">
           <h2>History</h2>
           {history.isPending ? (

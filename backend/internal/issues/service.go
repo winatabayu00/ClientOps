@@ -37,6 +37,25 @@ type Issue struct {
 	TriagedAt         *time.Time `json:"triaged_at"`
 	ResolvedAt        *time.Time `json:"resolved_at"`
 	ClosedAt          *time.Time `json:"closed_at"`
+	WorkState         string     `json:"work_state" gorm:"column:work_state"`
+	SLAStatus         string     `json:"sla_status" gorm:"column:sla_status"`
+	SLADeadline       *time.Time `json:"sla_deadline" gorm:"column:sla_deadline"`
+}
+type WorkState struct {
+	ID        string     `json:"id"`
+	IssueID   string     `json:"issue_id"`
+	State     string     `json:"state"`
+	CreatedBy string     `json:"created_by"`
+	Reason    *string    `json:"reason"`
+	StartedAt time.Time  `json:"started_at"`
+	EndedAt   *time.Time `json:"ended_at"`
+}
+type WorkSummary struct {
+	ElapsedMinutes         int64 `json:"elapsed_minutes"`
+	ActiveMinutes          int64 `json:"active_minutes"`
+	BlockedMinutes         int64 `json:"blocked_minutes"`
+	WaitingClientMinutes   int64 `json:"waiting_client_minutes"`
+	WaitingInternalMinutes int64 `json:"waiting_internal_minutes"`
 }
 type History struct {
 	ID         string    `json:"id"`
@@ -56,8 +75,8 @@ type UpdateInput struct {
 	Version                                int
 }
 type ListInput struct {
-	Page, Limit                                                                       int
-	Search, ClientID, Status, Severity, Category, AssigneeID, ReporterID, Sort, Order string
+	Page, Limit                                                                                             int
+	Search, ClientID, Status, Severity, Category, AssigneeID, ReporterID, WorkState, SLAStatus, Sort, Order string
 }
 type TransitionInput struct {
 	Version                                                              int
@@ -83,22 +102,28 @@ func (s *Service) Create(in CreateInput, actorID, requestID string) (Issue, erro
 		if err := tx.Exec(`INSERT INTO issue_status_histories (issue_id,to_status,changed_by) VALUES (?,'REPORTED',?)`, out.ID, actorID).Error; err != nil {
 			return err
 		}
+		if err := tx.Exec(`INSERT INTO issue_work_states (issue_id,state,created_by) VALUES (?,'ACTIVE',?)`, out.ID, actorID).Error; err != nil {
+			return err
+		}
 		return audit(tx, actorID, "ISSUE_CREATED", out.ID, nil, out, requestID)
 	})
 	return out, err
 }
 func (s *Service) List(in ListInput, userID string, scoped bool) ([]Issue, int64, error) {
-	q := s.db.Table("issues i")
+	q := s.issueQuery()
 	if scoped {
 		q = q.Where(`EXISTS (SELECT 1 FROM client_owners co WHERE co.client_id=i.client_id AND co.user_id=? AND co.unassigned_at IS NULL)`, userID)
 	}
-	for _, filter := range []struct{ value, column string }{{in.ClientID, "i.client_id"}, {in.Status, "i.status"}, {in.Severity, "i.severity"}, {in.Category, "i.category"}, {in.AssigneeID, "i.assignee_id"}, {in.ReporterID, "i.reporter_id"}} {
+	for _, filter := range []struct{ value, column string }{{in.ClientID, "i.client_id"}, {in.Status, "i.status"}, {in.Severity, "i.severity"}, {in.Category, "i.category"}, {in.AssigneeID, "i.assignee_id"}, {in.ReporterID, "i.reporter_id"}, {in.WorkState, "ws.state"}} {
 		if filter.value != "" {
 			q = q.Where(filter.column+" = ?", filter.value)
 		}
 	}
 	if in.Search != "" {
 		q = q.Where("(i.title ILIKE ? OR i.issue_number ILIKE ?)", "%"+in.Search+"%", "%"+in.Search+"%")
+	}
+	if in.SLAStatus != "" {
+		q = q.Where(slaStatusSQL()+" = ?", in.SLAStatus)
 	}
 	var total int64
 	if err := q.Count(&total).Error; err != nil {
@@ -113,20 +138,91 @@ func (s *Service) List(in ListInput, userID string, scoped bool) ([]Issue, int64
 		order = "DESC"
 	}
 	var out []Issue
-	err := q.Order(sort + " " + order).Offset((in.Page - 1) * in.Limit).Limit(in.Limit).Find(&out).Error
+	err := q.Select("i.*, ws.state AS work_state, " + slaStatusSQL() + " AS sla_status, i.reported_at + sp.resolution_minutes * INTERVAL '1 minute' AS sla_deadline").Order(sort + " " + order).Offset((in.Page - 1) * in.Limit).Limit(in.Limit).Scan(&out).Error
 	return out, total, err
 }
 func (s *Service) Get(id, userID string, scoped bool) (Issue, error) {
 	var out Issue
-	q := s.db.Table("issues i").Where("i.id = ?", id)
+	q := s.issueQuery().Where("i.id = ?", id)
 	if scoped {
 		q = q.Where(`EXISTS (SELECT 1 FROM client_owners co WHERE co.client_id=i.client_id AND co.user_id=? AND co.unassigned_at IS NULL)`, userID)
 	}
-	err := q.First(&out).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	r := q.Select("i.*, ws.state AS work_state, " + slaStatusSQL() + " AS sla_status, i.reported_at + sp.resolution_minutes * INTERVAL '1 minute' AS sla_deadline").Scan(&out)
+	if r.Error != nil {
+		return out, r.Error
+	}
+	if r.RowsAffected == 0 {
 		return out, ErrNotFound
 	}
+	return out, nil
+}
+func (s *Service) issueQuery() *gorm.DB {
+	return s.db.Table("issues i").Joins("LEFT JOIN issue_work_states ws ON ws.issue_id=i.id AND ws.ended_at IS NULL").Joins("LEFT JOIN sla_policies sp ON sp.severity=i.severity AND sp.is_active")
+}
+func slaStatusSQL() string {
+	return "CASE WHEN sp.resolution_minutes IS NULL THEN 'NOT_SET' WHEN COALESCE(i.resolved_at, NOW()) > i.reported_at + sp.resolution_minutes * INTERVAL '1 minute' THEN 'BREACHED' WHEN i.resolved_at IS NOT NULL THEN 'MET' WHEN NOW() >= i.reported_at + sp.resolution_minutes * INTERVAL '0.8 minute' THEN 'APPROACHING' ELSE 'ON_TRACK' END"
+}
+func (s *Service) SetWorkState(id, state, reason string, version int, actorID, requestID string) (Issue, error) {
+	var out Issue
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		var before Issue
+		if err := tx.First(&before, "id = ?", id).Error; err != nil {
+			return missing(err)
+		}
+		r := tx.Table("issues").Where("id = ? AND version = ?", id, version).Updates(map[string]interface{}{"version": gorm.Expr("version + 1"), "updated_at": time.Now()})
+		if r.Error != nil {
+			return r.Error
+		}
+		if r.RowsAffected == 0 {
+			return ErrVersionConflict
+		}
+		if err := tx.Exec("UPDATE issue_work_states SET ended_at=NOW() WHERE issue_id=? AND ended_at IS NULL", id).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec("INSERT INTO issue_work_states (issue_id,state,reason,created_by) VALUES (?,?,?,?)", id, state, nullable(reason), actorID).Error; err != nil {
+			return err
+		}
+		if err := tx.First(&out, "id = ?", id).Error; err != nil {
+			return err
+		}
+		return audit(tx, actorID, "ISSUE_WORK_STATE_CHANGED", id, before, out, requestID)
+	})
 	return out, err
+}
+func nullable(s string) interface{} {
+	if s == "" {
+		return nil
+	}
+	return s
+}
+func (s *Service) WorkHistory(id string) ([]WorkState, WorkSummary, error) {
+	var out []WorkState
+	if err := s.db.Where("issue_id = ?", id).Order("started_at").Find(&out).Error; err != nil {
+		return nil, WorkSummary{}, err
+	}
+	return out, summarizeWork(out, time.Now()), nil
+}
+func summarizeWork(states []WorkState, now time.Time) WorkSummary {
+	var out WorkSummary
+	for _, state := range states {
+		end := now
+		if state.EndedAt != nil {
+			end = *state.EndedAt
+		}
+		minutes := int64(end.Sub(state.StartedAt).Minutes())
+		out.ElapsedMinutes += minutes
+		switch state.State {
+		case "ACTIVE":
+			out.ActiveMinutes += minutes
+		case "BLOCKED":
+			out.BlockedMinutes += minutes
+		case "WAITING_CLIENT":
+			out.WaitingClientMinutes += minutes
+		default:
+			out.WaitingInternalMinutes += minutes
+		}
+	}
+	return out
 }
 func (s *Service) Update(id string, in UpdateInput, actorID, requestID string) (Issue, error) {
 	var out Issue

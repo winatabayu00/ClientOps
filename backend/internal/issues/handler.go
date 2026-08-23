@@ -28,11 +28,16 @@ type actionRequest struct {
 	Version                                                              int
 	Reason, AssigneeID, ReleaseID, ResolutionSummary, Category, Severity *string
 }
+type workStateRequest struct {
+	State   string `json:"state"`
+	Reason  string `json:"reason"`
+	Version int    `json:"version"`
+}
 
 func (h *Handler) List(c *gin.Context) {
 	page, limit := pagination(c)
 	user := auth.CurrentUser(c)
-	out, total, err := h.service.List(ListInput{Page: page, Limit: limit, Search: c.Query("search"), ClientID: c.Query("client_id"), Status: c.Query("status"), Severity: c.Query("severity"), Category: c.Query("category"), AssigneeID: c.Query("assignee_id"), ReporterID: c.Query("reporter_id"), Sort: c.Query("sort"), Order: c.Query("order")}, user.ID, scoped(c))
+	out, total, err := h.service.List(ListInput{Page: page, Limit: limit, Search: c.Query("search"), ClientID: c.Query("client_id"), Status: c.Query("status"), Severity: c.Query("severity"), Category: c.Query("category"), AssigneeID: c.Query("assignee_id"), ReporterID: c.Query("reporter_id"), WorkState: c.Query("work_state"), SLAStatus: c.Query("sla_status"), Sort: c.Query("sort"), Order: c.Query("order")}, user.ID, scoped(c))
 	if err != nil {
 		api.InternalError(c)
 		return
@@ -135,6 +140,39 @@ func (h *Handler) History(c *gin.Context) {
 	}
 	api.Success(c, 200, out, "Success")
 }
+func (h *Handler) SetWorkState(c *gin.Context) {
+	var in workStateRequest
+	if !validUUID(c.Param("id")) || c.ShouldBindJSON(&in) != nil || in.Version < 1 || !validWorkState(in.State) {
+		invalid(c)
+		return
+	}
+	if _, err := h.service.Get(c.Param("id"), auth.CurrentUser(c).ID, scoped(c)); err != nil {
+		writeError(c, err)
+		return
+	}
+	out, err := h.service.SetWorkState(c.Param("id"), in.State, in.Reason, in.Version, auth.CurrentUser(c).ID, api.RequestID(c))
+	if err != nil {
+		writeError(c, err)
+		return
+	}
+	api.Success(c, 200, out, "Issue work state updated")
+}
+func (h *Handler) WorkHistory(c *gin.Context) {
+	if !validUUID(c.Param("id")) {
+		invalid(c)
+		return
+	}
+	if _, err := h.service.Get(c.Param("id"), auth.CurrentUser(c).ID, scoped(c)); err != nil {
+		writeError(c, err)
+		return
+	}
+	states, summary, err := h.service.WorkHistory(c.Param("id"))
+	if err != nil {
+		api.InternalError(c)
+		return
+	}
+	api.Success(c, 200, gin.H{"states": states, "summary": summary}, "Success")
+}
 func pagination(c *gin.Context) (int, int) {
 	p, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	l, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
@@ -160,6 +198,9 @@ var uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-
 func validUUID(v string) bool { return uuidPattern.MatchString(v) }
 func validSeverity(v string) bool {
 	return v == "LOW" || v == "MEDIUM" || v == "HIGH" || v == "CRITICAL"
+}
+func validWorkState(v string) bool {
+	return v == "ACTIVE" || v == "WAITING_CLIENT" || v == "WAITING_OPS" || v == "WAITING_PRODUCT" || v == "WAITING_ENGINEERING" || v == "WAITING_RELEASE" || v == "BLOCKED"
 }
 func invalid(c *gin.Context) { api.Error(c, 422, "VALIDATION_ERROR", "Validation failed", nil) }
 func writeError(c *gin.Context, err error) {
