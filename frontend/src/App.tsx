@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import {
   Navigate,
   NavLink,
@@ -120,6 +120,11 @@ function Login() {
 }
 function Shell() {
   const nav = useNavigate();
+  useEffect(() => {
+    const expired = () => { client.clear(); nav("/login", { replace: true }); };
+    window.addEventListener("clientops:session-expired", expired);
+    return () => window.removeEventListener("clientops:session-expired", expired);
+  }, [nav]);
   const me = useQuery({ queryKey: ["me"], queryFn: auth.me });
   const logout = useMutation({
     mutationFn: auth.logout,
@@ -452,6 +457,22 @@ function Clients() {
           <select name="health" defaultValue={params.get("health") || ""}>
             <option value="">All health</option>
             <option>HEALTHY</option><option>ATTENTION</option><option>AT_RISK</option>
+          </select>
+        </label>
+        <label>
+          Sort
+          <select name="sort" defaultValue={params.get("sort") || "name"}>
+            <option value="name">Name</option>
+            <option value="code">Code</option>
+            <option value="created_at">Created</option>
+            <option value="updated_at">Updated</option>
+          </select>
+        </label>
+        <label>
+          Order
+          <select name="order" defaultValue={params.get("order") || "asc"}>
+            <option value="asc">Ascending</option>
+            <option value="desc">Descending</option>
           </select>
         </label>
         <button>Apply filters</button>
@@ -907,6 +928,7 @@ function Issues() {
   const user = useOutletContext<User>();
   const [params, setParams] = useSearchParams();
   const [open, setOpen] = useState(false);
+  const [created, setCreated] = useState(false);
   const issues = useQuery<Envelope<Issue[]>>({
     queryKey: ["issues", params.toString()],
     queryFn: () => getPage<Issue[]>(`/issues?${params}`),
@@ -914,6 +936,14 @@ function Issues() {
   const clients = useQuery<Client[]>({
     queryKey: ["clients", "issue-selector"],
     queryFn: () => get("/clients?limit=100"),
+  });
+  const createIssue = useMutation({
+    mutationFn: (data: Record<string, unknown>) => post("/issues", data),
+    onSuccess: () => {
+      setOpen(false);
+      setCreated(true);
+      issues.refetch();
+    },
   });
   function filters(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -931,11 +961,7 @@ function Issues() {
   }
   function create(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const data = Object.fromEntries(new FormData(e.currentTarget));
-    post("/issues", data).then(() => {
-      setOpen(false);
-      issues.refetch();
-    });
+    createIssue.mutate(Object.fromEntries(new FormData(e.currentTarget)));
   }
   return (
     <section className="clients-workspace">
@@ -945,11 +971,12 @@ function Issues() {
           <h1>Issues</h1>
         </div>
         {permissions(user, "issue.create") && (
-          <button onClick={() => setOpen(!open)}>
+          <button onClick={() => { setOpen(!open); setCreated(false); }}>
             {open ? "Cancel" : "New issue"}
           </button>
         )}
       </div>
+      {created && <p role="status">Issue created.</p>}
       <form className="client-filters" onSubmit={filters}>
         <label>
           Search
@@ -1032,7 +1059,8 @@ function Issues() {
             Category
             <input name="category" />
           </label>
-          <button>Create issue</button>
+          <button disabled={createIssue.isPending}>{createIssue.isPending ? "Creating..." : "Create issue"}</button>
+          {createIssue.isError && <p role="alert">{message(createIssue.error)}</p>}
           {clients.isError && <p role="alert">{message(clients.error)}</p>}
         </form>
       )}

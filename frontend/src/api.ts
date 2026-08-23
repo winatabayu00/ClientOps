@@ -2,6 +2,7 @@ import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios'
 
 export type Envelope<T> = { success: boolean; data: T; message: string; meta?: { page: number; limit: number; total: number; total_pages: number } }
 export type User = { id: string; name: string; email: string; roles: string[]; permissions: string[] }
+export type APIError = { code?: string; details?: unknown; request_id?: string; message?: string }
 
 const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || '/api/v1', withCredentials: true })
 let refresh: Promise<void> | null = null
@@ -21,12 +22,19 @@ api.interceptors.response.use(undefined, async (error: AxiosError) => {
   const request = error.config as (InternalAxiosRequestConfig & { _retried?: boolean }) | undefined
   if (error.response?.status !== 401 || !request || request._retried || request.url?.includes('/auth/')) throw error
   request._retried = true
-  refresh ??= api.post('/auth/refresh').then(() => undefined).finally(() => { refresh = null })
+  refresh ??= api.post('/auth/refresh').then(() => undefined).catch(error => {
+    window.dispatchEvent(new Event('clientops:session-expired'))
+    throw error
+  }).finally(() => { refresh = null })
   await refresh
   return api(request)
 })
 
-export const message = (error: unknown) => (axios.isAxiosError(error) ? (error.response?.data as { message?: string })?.message : null) || 'Request failed'
+export const error = (value: unknown): APIError => axios.isAxiosError(value) ? ((value.response?.data as { error?: APIError })?.error || { message: (value.response?.data as { message?: string })?.message }) : {}
+export const message = (value: unknown) => {
+  const detail = error(value)
+  return detail.message || ({ PERMISSION_DENIED: 'Permission denied', VALIDATION_ERROR: 'Check the highlighted fields', RATE_LIMIT_EXCEEDED: 'Too many requests. Try again shortly' }[detail.code || '']) || 'Request failed'
+}
 export const get = <T>(url: string) => api.get<Envelope<T>>(url).then(r => r.data.data)
 export const getPage = <T>(url: string) => api.get<Envelope<T>>(url).then(r => r.data)
 export const post = <T>(url: string, data?: unknown) => api.post<Envelope<T>>(url, data).then(r => r.data.data)

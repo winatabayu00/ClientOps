@@ -220,6 +220,7 @@ paths:
         '200': { $ref: '#/components/responses/LoginSuccess' }
         '401': { $ref: '#/components/responses/InvalidCredentials' }
         '403': { $ref: '#/components/responses/CSRFError' }
+        '429': { $ref: '#/components/responses/RateLimitError' }
         '422': { $ref: '#/components/responses/ValidationError' }
         '500': { $ref: '#/components/responses/InternalError' }
   /auth/refresh:
@@ -231,6 +232,7 @@ paths:
         '200': { $ref: '#/components/responses/RefreshSuccess' }
         '401': { $ref: '#/components/responses/InvalidRefreshToken' }
         '403': { $ref: '#/components/responses/CSRFError' }
+        '429': { $ref: '#/components/responses/RateLimitError' }
         '500': { $ref: '#/components/responses/InternalError' }
   /auth/logout:
     post:
@@ -715,6 +717,7 @@ components:
     HandoffConflict: { description: 'Invalid state, missing documentation, or incomplete follow-up.', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
     OperationConflict: { description: Invalid state, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
     InternalError: { description: Unexpected internal error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    RateLimitError: { description: Too many requests, headers: { Retry-After: { schema: { type: integer } } }, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
   schemas:
     <<: *core_schemas
     EmptyEnvelope: { type: object, required: [success, data, message], properties: { success: { type: boolean, enum: [true] }, data: { type: object, nullable: true }, message: { type: string } } }

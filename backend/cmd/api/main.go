@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/winatabayu00/school-success-platform/backend/errorshim"
@@ -38,11 +39,12 @@ func main() {
 	router.GET("/ready", health.Ready(db))
 	apiV1 := router.Group("/api/v1")
 	authHandler := auth.NewHandler(auth.NewService(db, cfg.AccessTokenKey), cfg)
+	rateLimiter := auth.NewRateLimiter(cfg.RedisAddr)
 	authRoutes := apiV1.Group("/auth")
 	authRoutes.GET("/csrf", authHandler.CSRF)
 	authRoutes.Use(authHandler.CSRFProtection())
-	authRoutes.POST("/login", authHandler.Login)
-	authRoutes.POST("/refresh", authHandler.Refresh)
+	authRoutes.POST("/login", rateLimiter.Limit("login", 10, time.Minute), authHandler.Login)
+	authRoutes.POST("/refresh", rateLimiter.Limit("refresh", 30, time.Minute), authHandler.Refresh)
 	authRoutes.POST("/logout", authHandler.Logout)
 	authRoutes.GET("/me", authHandler.Authenticate(), authHandler.Me)
 	authRoutes.GET("/sessions", authHandler.Authenticate(), authHandler.Sessions)

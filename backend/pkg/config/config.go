@@ -12,6 +12,7 @@ type Config struct {
 	AccessCookieName  string
 	RefreshCookieName string
 	CookieSecure      bool
+	RedisAddr         string
 	MinIOEndpoint     string
 	MinIOAccessKey    string
 	MinIOSecretKey    string
@@ -26,6 +27,7 @@ func Load() (Config, error) {
 		AccessCookieName:  "clientops_access",
 		RefreshCookieName: "clientops_refresh",
 		CookieSecure:      os.Getenv("COOKIE_SECURE") == "true",
+		RedisAddr:         os.Getenv("REDIS_ADDR"),
 		MinIOEndpoint:     os.Getenv("MINIO_ENDPOINT"),
 		MinIOAccessKey:    os.Getenv("MINIO_ACCESS_KEY"),
 		MinIOSecretKey:    os.Getenv("MINIO_SECRET_KEY"),
