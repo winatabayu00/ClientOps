@@ -24,6 +24,7 @@ import (
 	"github.com/winatabayu00/school-success-platform/backend/pkg/config"
 	"github.com/winatabayu00/school-success-platform/backend/pkg/database"
 	"github.com/winatabayu00/school-success-platform/backend/pkg/metrics"
+	"gorm.io/gorm"
 )
 
 func main() {
@@ -35,7 +36,16 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	objectStore, err := issues.NewObjectStore(cfg)
+	if err != nil {
+		log.Fatal(err)
+	}
+	router := newRouter(db, objectStore, cfg)
 
+	log.Fatal(router.Run(":" + cfg.Port))
+}
+
+func newRouter(db *gorm.DB, objectStore *issues.ObjectStore, cfg config.Config) *gin.Engine {
 	router := gin.New()
 	caches := cache.New(cfg.RedisAddr)
 	router.Use(api.RequestIDMiddleware(), gin.Logger(), errorshim.Recovery(), api.DashboardCacheInvalidation(caches), func(c *gin.Context) { c.Next(); metrics.Record(c.Writer.Status()) })
@@ -52,13 +62,12 @@ func main() {
 	rateLimiter := auth.NewRateLimiter(cfg.RedisAddr)
 	authRoutes := apiV1.Group("/auth")
 	authRoutes.GET("/csrf", authHandler.CSRF)
-	authRoutes.Use(authHandler.CSRFProtection())
-	authRoutes.POST("/login", rateLimiter.Limit("login", 10, time.Minute), authHandler.Login)
-	authRoutes.POST("/refresh", rateLimiter.Limit("refresh", 30, time.Minute), authHandler.Refresh)
-	authRoutes.POST("/logout", authHandler.Logout)
+	authRoutes.POST("/login", rateLimiter.Limit("login", 10, time.Minute), authHandler.CSRFProtection(), authHandler.Login)
+	authRoutes.POST("/refresh", rateLimiter.Limit("refresh", 30, time.Minute), authHandler.CSRFProtection(), authHandler.Refresh)
+	authRoutes.POST("/logout", authHandler.CSRFProtection(), authHandler.Logout)
 	authRoutes.GET("/me", authHandler.Authenticate(), authHandler.Me)
 	authRoutes.GET("/sessions", authHandler.Authenticate(), authHandler.Sessions)
-	authRoutes.DELETE("/sessions/:id", authHandler.Authenticate(), authHandler.RevokeSession)
+	authRoutes.DELETE("/sessions/:id", authHandler.Authenticate(), authHandler.CSRFProtection(), authHandler.RevokeSession)
 	userHandler := users.NewHandler(users.NewService(db))
 	userRoutes := apiV1.Group("/users", authHandler.Authenticate(), authHandler.CSRFProtection(), auth.Require("user.manage"))
 	userRoutes.GET("", userHandler.ListUsers)
@@ -110,10 +119,6 @@ func main() {
 	featureRequestRoutes.POST("/:id/mark-delivered", auth.Require("feature_request.close"), featureRequestHandler.Action("DELIVERED"))
 	featureRequestRoutes.POST("/:id/mark-duplicate", auth.Require("feature_request.merge"), featureRequestHandler.Action("DUPLICATE"))
 	notificationHandler := notifications.NewHandler(notifications.NewService(db))
-	objectStore, err := issues.NewObjectStore(cfg)
-	if err != nil {
-		log.Fatal(err)
-	}
 	issueService := issues.NewService(db, objectStore)
 	issueHandler := issues.NewHandler(issueService)
 	issueRoutes := apiV1.Group("/issues", authHandler.Authenticate(), authHandler.CSRFProtection())
@@ -175,5 +180,5 @@ func main() {
 	followUpRoutes.POST("/:id/start", auth.Require("client_followup.create"), operationsHandler.StartFollowUp)
 	followUpRoutes.POST("/:id/complete", auth.Require("client_followup.complete"), operationsHandler.CompleteFollowUp)
 
-	log.Fatal(router.Run(":" + cfg.Port))
+	return router
 }
