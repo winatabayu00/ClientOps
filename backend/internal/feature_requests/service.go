@@ -112,7 +112,7 @@ func (s *Service) List(in ListInput, userID string, scoped bool) ([]FeatureReque
 	return out, total, err
 }
 func (s *Service) Detail(id, userID string, scoped bool) (Detail, error) {
-	var d Detail
+	d := Detail{RequestingClients: []ClientDemand{}}
 	q := s.db.Where("id=?", id)
 	if scoped {
 		q = q.Where(`EXISTS (SELECT 1 FROM feature_request_clients frc JOIN client_owners co ON co.client_id=frc.client_id WHERE frc.feature_request_id=feature_requests.id AND co.user_id=? AND co.unassigned_at IS NULL)`, userID)

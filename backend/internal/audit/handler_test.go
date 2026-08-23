@@ -10,3 +10,10 @@ func TestDate(t *testing.T) {
 		t.Fatal("invalid date accepted")
 	}
 }
+
+func TestAuditQueryJoinsActors(t *testing.T) {
+	query, _ := auditQuery(Filter{})
+	if query != "FROM audit_logs a LEFT JOIN users u ON u.id = a.actor_id WHERE 1=1" {
+		t.Fatalf("audit query missing actor join: %s", query)
+	}
+}

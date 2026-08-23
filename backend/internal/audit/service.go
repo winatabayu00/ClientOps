@@ -44,7 +44,7 @@ func (s *Service) Get(id string) (Log, error) {
 	return log, err
 }
 func auditQuery(f Filter) (string, []interface{}) {
-	q, args := "FROM audit_logs a WHERE 1=1", []interface{}{}
+	q, args := "FROM audit_logs a LEFT JOIN users u ON u.id = a.actor_id WHERE 1=1", []interface{}{}
 	for _, x := range []struct{ field, value string }{{"a.actor_id", f.ActorID}, {"a.action", f.Action}, {"a.resource_type", f.ResourceType}, {"a.resource_id", f.ResourceID}} {
 		if x.value != "" {
 			q += " AND " + x.field + " = ?"

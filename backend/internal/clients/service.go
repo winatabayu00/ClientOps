@@ -321,7 +321,7 @@ func (s *Service) ChangePrimaryOwner(clientID, userID string) error {
 }
 func (s *Service) Contacts(clientID string) ([]Contact, error) {
 	var contacts []Contact
-	err := s.db.Where("client_id = ?", clientID).Find(&contacts).Error
+	err := s.db.Table("client_contacts").Where("client_id = ?", clientID).Find(&contacts).Error
 	return contacts, err
 }
 func (s *Service) AddContact(contact Contact) (Contact, error) {

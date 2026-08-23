@@ -135,7 +135,8 @@ func (s *Service) Overview(userID string, scoped bool) (Overview, error) {
  - 15 * (SELECT COUNT(*) FROM issues i WHERE i.client_id = c.id AND i.status NOT IN ('CLOSED', 'CANCELLED') AND ` + slaBreachedSQL() + `)
  - 10 * (SELECT COUNT(*) FROM client_follow_ups f WHERE f.client_id = c.id AND f.status IN ('OPEN', 'IN_PROGRESS') AND f.due_at < NOW())
  - 5 * (SELECT COUNT(*) FROM release_impacts ri JOIN releases r ON r.id = ri.release_id WHERE ri.client_id = c.id AND r.status = 'PUBLISHED' AND NOT EXISTS (SELECT 1 FROM release_documentations rd JOIN documentations d ON d.id = rd.documentation_id WHERE rd.release_id = ri.release_id AND d.status = 'PUBLISHED'))`
-	if err := health.Select("CASE WHEN (" + score + ") >= 80 THEN 'HEALTHY' WHEN (" + score + ") >= 60 THEN 'ATTENTION' ELSE 'AT_RISK' END AS name, COUNT(*) AS count").Group("name").Order("name").Scan(&out.ClientHealth).Error; err != nil {
+	healthByClient := health.Select("CASE WHEN (" + score + ") >= 80 THEN 'HEALTHY' WHEN (" + score + ") >= 60 THEN 'ATTENTION' ELSE 'AT_RISK' END AS name")
+	if err := s.db.Table("(?) AS client_health", healthByClient).Select("name, COUNT(*) AS count").Group("name").Order("name").Scan(&out.ClientHealth).Error; err != nil {
 		return out, err
 	}
 	if raw, err := json.Marshal(out); err == nil {
