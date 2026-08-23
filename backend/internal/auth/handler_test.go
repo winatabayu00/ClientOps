@@ -64,3 +64,37 @@ func TestRequireRejectsMissingPermission(t *testing.T) {
 		t.Fatalf("got status %d", w.Code)
 	}
 }
+
+func TestRequireAllowsGrantedPermission(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.GET("/allowed", func(c *gin.Context) { c.Set(userKey, User{Permissions: []string{"issue.close"}}) }, Require("issue.close"), func(c *gin.Context) { c.Status(http.StatusNoContent) })
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/allowed", nil))
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("got status %d", w.Code)
+	}
+}
+
+func TestAuthenticateRejectsMissingOrInvalidCookie(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	h := NewHandler(nil, config.Config{AccessCookieName: "clientops_access"})
+	r := gin.New()
+	r.GET("/protected", h.Authenticate(), func(c *gin.Context) { c.Status(http.StatusNoContent) })
+	for _, tc := range []struct{ name, cookie string }{
+		{"missing", ""},
+		{"invalid", "forged-token"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/protected", nil)
+			if tc.cookie != "" {
+				req.AddCookie(&http.Cookie{Name: "clientops_access", Value: tc.cookie})
+			}
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, req)
+			if w.Code != http.StatusUnauthorized {
+				t.Fatalf("got status %d, want 401", w.Code)
+			}
+		})
+	}
+}
