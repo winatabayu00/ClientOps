@@ -1,4 +1,7 @@
-.PHONY: up down migrate-up migrate-down migrate-fresh seed backend-test backend-vet frontend-build frontend-e2e openapi-check test build
+.PHONY: dev up down migrate-up migrate-down migrate-fresh seed backend-test backend-vet frontend-test frontend-build frontend-e2e openapi-check test build
+
+dev:
+	./scripts/dev.sh
 
 up:
 	docker compose up --build
@@ -18,7 +21,8 @@ migrate-fresh:
 	docker compose run --rm migrate
 
 seed:
-	docker compose run --rm seed
+	docker compose run --rm migrate
+	docker compose run --build --rm seed
 
 backend-test:
 	cd backend && go test ./...
@@ -29,12 +33,15 @@ backend-vet:
 frontend-build:
 	cd frontend && npm run build
 
+frontend-test:
+	cd frontend && npm run test
+
 frontend-e2e:
 	cd frontend && npm run e2e
 
 openapi-check:
 	ruby -e 'require "yaml"; YAML.load_file("docs/api/openapi.yaml")'
 
-test: backend-vet backend-test frontend-build openapi-check
+test: backend-vet backend-test frontend-test frontend-build openapi-check
 
 build: test
