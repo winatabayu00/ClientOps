@@ -1,0 +1,2 @@
+DROP INDEX notifications_sla_approaching_once_idx;
+DROP INDEX notifications_release_published_once_idx;

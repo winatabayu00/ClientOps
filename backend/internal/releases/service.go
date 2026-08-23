@@ -164,6 +164,11 @@ func (s *Service) Publish(id, actor, request string) (int64, error) {
 			if err := tx.Exec(`INSERT INTO operational_handoffs(release_id,client_id,ops_owner_id,status,requires_follow_up) VALUES(?,?,?,?,?)`, id, i.ClientID, owner, status, i.RequiresFollowUp).Error; err != nil {
 				return err
 			}
+			if err := tx.Exec(`INSERT INTO notifications(user_id,type,title,message,entity_type,entity_id)
+				VALUES (?, 'RELEASE_PUBLISHED', 'Release published', ?, 'release', ?)
+				ON CONFLICT DO NOTHING`, owner, r.Version+": "+r.Title, id).Error; err != nil {
+				return err
+			}
 			count++
 		}
 		before := r

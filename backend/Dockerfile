@@ -5,11 +5,13 @@ RUN go mod download
 COPY backend .
 RUN CGO_ENABLED=0 go build -o /api ./cmd/api
 RUN CGO_ENABLED=0 go build -o /seed ./cmd/seed
+RUN CGO_ENABLED=0 go build -o /worker ./cmd/worker
 
 FROM alpine:3.21
 WORKDIR /app
 COPY --from=build /api /api
 COPY --from=build /seed /seed
+COPY --from=build /worker /worker
 COPY docs/api/openapi.yaml docs/api/openapi.yaml
 EXPOSE 8080
 CMD ["/api"]

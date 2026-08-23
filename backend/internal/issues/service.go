@@ -83,15 +83,16 @@ type TransitionInput struct {
 	Reason, AssigneeID, ReleaseID, ResolutionSummary, Category, Severity *string
 }
 type Service struct {
-	db               *gorm.DB
-	store            *ObjectStore
-	assignmentNotify func(userID, kind, title, message, entityType, entityID string) error
+	db    *gorm.DB
+	store *ObjectStore
 }
 
-func NewService(db *gorm.DB, stores ...*ObjectStore) *Service { s := &Service{db: db}; if len(stores) > 0 { s.store = stores[0] }; return s }
-
-func (s *Service) SetAssignmentNotifier(notify func(string, string, string, string, string, string) error) {
-	s.assignmentNotify = notify
+func NewService(db *gorm.DB, stores ...*ObjectStore) *Service {
+	s := &Service{db: db}
+	if len(stores) > 0 {
+		s.store = stores[0]
+	}
+	return s
 }
 
 func (s *Service) Create(in CreateInput, actorID, requestID string) (Issue, error) {
@@ -260,18 +261,15 @@ func (s *Service) Update(id string, in UpdateInput, actorID, requestID string) (
 	return out, err
 }
 func (s *Service) Assign(id string, in TransitionInput, actorID, requestID string) (Issue, error) {
-	out, err := s.mutate(id, in, actorID, requestID, "ISSUE_ASSIGNED", "", func(_ *gorm.DB, fields map[string]interface{}, current Issue) error {
+	return s.mutate(id, in, actorID, requestID, "ISSUE_ASSIGNED", "", func(tx *gorm.DB, fields map[string]interface{}, current Issue) error {
 		if in.AssigneeID == nil {
 			return ErrAssigneeRequired
 		}
 		fields["assignee_id"] = *in.AssigneeID
-		return nil
+		return tx.Exec(`INSERT INTO notifications(user_id,type,title,message,entity_type,entity_id)
+			VALUES (?, 'ISSUE_ASSIGNED', 'Issue assigned', ?, 'issue', ?)
+			ON CONFLICT DO NOTHING`, *in.AssigneeID, current.IssueNumber+": "+current.Title, current.ID).Error
 	})
-	if err == nil && s.assignmentNotify != nil {
-		// The issue transaction has committed; notification failure cannot undo the assignment.
-		_ = s.assignmentNotify(*out.AssigneeID, "ISSUE_ASSIGNED", "Issue assigned", out.IssueNumber+": "+out.Title, "issue", out.ID)
-	}
-	return out, err
 }
 func (s *Service) Transition(id, to string, in TransitionInput, actorID, requestID string) (Issue, error) {
 	return s.mutate(id, in, actorID, requestID, "ISSUE_STATUS_CHANGED", to, func(tx *gorm.DB, fields map[string]interface{}, current Issue) error {

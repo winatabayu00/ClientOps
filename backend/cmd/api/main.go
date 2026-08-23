@@ -105,14 +105,12 @@ func main() {
 	featureRequestRoutes.POST("/:id/mark-released", auth.Require("feature_request.update"), featureRequestHandler.Action("RELEASED"))
 	featureRequestRoutes.POST("/:id/mark-delivered", auth.Require("feature_request.close"), featureRequestHandler.Action("DELIVERED"))
 	featureRequestRoutes.POST("/:id/mark-duplicate", auth.Require("feature_request.merge"), featureRequestHandler.Action("DUPLICATE"))
-	notificationService := notifications.NewService(db)
-	notificationHandler := notifications.NewHandler(notificationService)
+	notificationHandler := notifications.NewHandler(notifications.NewService(db))
 	objectStore, err := issues.NewObjectStore(cfg)
 	if err != nil {
 		log.Fatal(err)
 	}
 	issueService := issues.NewService(db, objectStore)
-	issueService.SetAssignmentNotifier(notificationService.Create)
 	issueHandler := issues.NewHandler(issueService)
 	issueRoutes := apiV1.Group("/issues", authHandler.Authenticate(), authHandler.CSRFProtection())
 	issueRoutes.GET("", auth.Require("issue.read"), issueHandler.List)
