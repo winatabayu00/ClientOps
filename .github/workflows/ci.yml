@@ -7,9 +7,14 @@ on:
 permissions:
   contents: read
 
+env:
+  ACCESS_TOKEN_KEY: ci-access-token-key-not-for-production
+  ADMIN_EMAIL: ci-admin@example.com
+  ADMIN_PASSWORD: ci-admin-password-not-for-production
+
 jobs:
   backend:
-    name: Go tests
+    name: Go tests and build
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -21,9 +26,10 @@ jobs:
           go-version: "1.25"
           cache-dependency-path: backend/go.sum
       - run: go test ./...
+      - run: go build ./...
 
   frontend:
-    name: Frontend build
+    name: Frontend lint and build
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -36,4 +42,24 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
+      - run: npm run lint
       - run: npm run build
+
+  compose:
+    name: Docker Compose validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose config --quiet
+
+  migrations:
+    name: Fresh migration cycle
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose up -d postgres
+      - run: make migrate-up
+      - run: make migrate-down
+      - run: make migrate-up
+      - if: always()
+        run: docker compose down -v --remove-orphans
