@@ -34,6 +34,8 @@ type Attachment struct {
 	ObjectKey   string    `json:"-" gorm:"column:object_key"`
 }
 
+func (Attachment) TableName() string { return "issue_attachments" }
+
 type ObjectStore struct {
 	client *minio.Client
 	bucket string

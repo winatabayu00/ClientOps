@@ -19,13 +19,13 @@ type User struct {
 	Name     string `json:"name"`
 	Email    string `json:"email"`
 	IsActive bool   `json:"is_active"`
-	Roles    []Role `json:"roles"`
+	Roles    []Role `json:"roles" gorm:"-"`
 }
 type Role struct {
 	ID          string       `json:"id"`
 	Name        string       `json:"name"`
 	Description *string      `json:"description"`
-	Permissions []Permission `json:"permissions"`
+	Permissions []Permission `json:"permissions" gorm:"-"`
 }
 type Permission struct {
 	ID          string  `json:"id"`

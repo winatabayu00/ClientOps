@@ -51,6 +51,9 @@ type WorkState struct {
 	StartedAt time.Time  `json:"started_at"`
 	EndedAt   *time.Time `json:"ended_at"`
 }
+
+func (WorkState) TableName() string { return "issue_work_states" }
+
 type WorkSummary struct {
 	ElapsedMinutes         int64 `json:"elapsed_minutes"`
 	ActiveMinutes          int64 `json:"active_minutes"`
@@ -67,6 +70,9 @@ type History struct {
 	Reason     *string   `json:"reason"`
 	CreatedAt  time.Time `json:"created_at"`
 }
+
+func (History) TableName() string { return "issue_status_histories" }
+
 type CreateInput struct {
 	ClientID, Title, Description string
 	Category, Severity           *string

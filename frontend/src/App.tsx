@@ -492,6 +492,7 @@ function Clients() {
       {open && (
         <form
           className="card create"
+          aria-label="Create client"
           onSubmit={(e) => {
             e.preventDefault();
             create.mutate(Object.fromEntries(new FormData(e.currentTarget)));
@@ -1032,7 +1033,7 @@ function Issues() {
         <button>Apply filters</button>
       </form>
       {open && (
-        <form className="card create" onSubmit={create}>
+        <form className="card create" aria-label="Create issue" onSubmit={create}>
           <label>
             Client
             <select
@@ -1080,11 +1081,11 @@ function Issues() {
         <p role="status">Loading issues...</p>
       ) : issues.isError ? (
         <p role="alert">{message(issues.error)}</p>
-      ) : !issues.data?.data.length ? (
+      ) : !issues.data?.data?.length ? (
         <p>No issues match these filters.</p>
       ) : (
         <div className="client-table" role="list">
-          {issues.data.data.map((x) => (
+          {issues.data.data?.map((x) => (
             <NavLink role="listitem" key={x.id} to={`/issues/${x.id}`}>
               <span>
                 <strong>{String(x.title || "")}</strong>
@@ -1538,7 +1539,7 @@ function Releases() {
       </div>
       {error && <p role="alert">{error}</p>}
       {open && (
-        <form className="card create" onSubmit={submit}>
+        <form className="card create" aria-label="Create release" onSubmit={submit}>
           <label>
             Version
             <input name="version" required placeholder="v2.4.1" />
@@ -1594,7 +1595,7 @@ function ReleaseDetail() {
   });
   const issues = useQuery<Issue[]>({
     queryKey: ["issues", "release-selector"],
-    queryFn: () => getPage<Issue[]>("/issues?limit=100").then((page) => page.data),
+    queryFn: () => getPage<Issue[]>("/issues?limit=100&sort=reported_at&order=desc").then((page) => page.data),
   });
   function refresh() {
     cache.invalidateQueries({ queryKey: ["release", id] });
@@ -1706,7 +1707,7 @@ function ReleaseDetail() {
             <p>No items added.</p>
           )}
           {draft && permissions(user, "release.update") && (
-            <form onSubmit={addItem}>
+            <form aria-label="Add release item" onSubmit={addItem}>
               <label>
                 Type
                 <select name="type" defaultValue="BUG_FIX">
@@ -1760,7 +1761,7 @@ function ReleaseDetail() {
             <p>No affected clients selected.</p>
           )}
           {draft && permissions(user, "release.manage_impact") && (
-            <form onSubmit={addImpact}>
+            <form aria-label="Add client impact" onSubmit={addImpact}>
               <label>
                 Client
                 <select
@@ -1931,6 +1932,7 @@ function FeatureRequests() {
       {open && (
         <form
           className="card create"
+          aria-label="Create documentation"
           onSubmit={(e) => {
             e.preventDefault();
             create.mutate(Object.fromEntries(new FormData(e.currentTarget)));
@@ -2713,7 +2715,7 @@ function FollowUps() {
         <button>Apply filters</button>
       </form>
       {open && (
-        <form className="card create" onSubmit={submit}>
+        <form className="card create" aria-label="Create follow-up" onSubmit={submit}>
           <label>
             Client
             <select name="client_id" required defaultValue="">

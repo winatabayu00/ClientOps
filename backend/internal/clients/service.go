@@ -67,9 +67,14 @@ type Contact struct {
 	IsPrimary bool    `json:"is_primary"`
 }
 type CreateInput struct {
-	Code, Name, Type, Status string
-	Province, City, Address  *string
-	PrimaryOwnerID           *string
+	Code           string  `json:"code"`
+	Name           string  `json:"name"`
+	Type           string  `json:"type"`
+	Status         string  `json:"status"`
+	Province       *string `json:"province"`
+	City           *string `json:"city"`
+	Address        *string `json:"address"`
+	PrimaryOwnerID *string `json:"primary_owner_id"`
 }
 type UpdateInput struct {
 	Name, Type, Status, Province, City, Address *string

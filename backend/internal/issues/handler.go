@@ -17,16 +17,27 @@ type Handler struct{ service *Service }
 func NewHandler(service *Service) *Handler { return &Handler{service: service} }
 
 type createRequest struct {
-	ClientID, Title, Description string
-	Category, Severity           *string
+	ClientID    string  `json:"client_id"`
+	Title       string  `json:"title"`
+	Description string  `json:"description"`
+	Category    *string `json:"category"`
+	Severity    *string `json:"severity"`
 }
 type updateRequest struct {
-	Title, Description, Category, Severity *string
-	Version                                int
+	Title       *string `json:"title"`
+	Description *string `json:"description"`
+	Category    *string `json:"category"`
+	Severity    *string `json:"severity"`
+	Version     int     `json:"version"`
 }
 type actionRequest struct {
-	Version                                                              int
-	Reason, AssigneeID, ReleaseID, ResolutionSummary, Category, Severity *string
+	Version           int     `json:"version"`
+	Reason            *string `json:"reason"`
+	AssigneeID        *string `json:"assignee_id"`
+	ReleaseID         *string `json:"release_id"`
+	ResolutionSummary *string `json:"resolution_summary"`
+	Category          *string `json:"category"`
+	Severity          *string `json:"severity"`
 }
 type workStateRequest struct {
 	State   string `json:"state"`
