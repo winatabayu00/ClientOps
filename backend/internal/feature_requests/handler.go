@@ -16,12 +16,7 @@ type Handler struct{ service *Service }
 
 func NewHandler(s *Service) *Handler { return &Handler{s} }
 func scoped(c *gin.Context) bool {
-	for _, role := range auth.CurrentUser(c).Roles {
-		if role == "OPS_STAFF" {
-			return true
-		}
-	}
-	return false
+	return auth.HasRole(c, "OPS_STAFF")
 }
 func (h *Handler) List(c *gin.Context) {
 	p, l := page(c)

@@ -55,7 +55,7 @@ func main() {
 	authRoutes.Use(authHandler.CSRFProtection())
 	authRoutes.POST("/login", rateLimiter.Limit("login", 10, time.Minute), authHandler.Login)
 	authRoutes.POST("/refresh", rateLimiter.Limit("refresh", 30, time.Minute), authHandler.Refresh)
-	authRoutes.POST("/logout", authHandler.Logout)
+	authRoutes.POST("/logout", authHandler.Authenticate(), authHandler.Logout)
 	authRoutes.GET("/me", authHandler.Authenticate(), authHandler.Me)
 	authRoutes.GET("/sessions", authHandler.Authenticate(), authHandler.Sessions)
 	authRoutes.DELETE("/sessions/:id", authHandler.Authenticate(), authHandler.RevokeSession)

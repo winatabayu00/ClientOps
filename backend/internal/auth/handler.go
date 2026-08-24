@@ -177,7 +177,12 @@ func (h *Handler) CSRFProtection() gin.HandlerFunc {
 
 func Require(permission string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		for _, value := range CurrentUser(c).Permissions {
+		user, ok := currentUser(c)
+		if !ok {
+			api.Error(c, http.StatusUnauthorized, "AUTHENTICATION_REQUIRED", "Authentication required", nil)
+			return
+		}
+		for _, value := range user.Permissions {
 			if value == permission {
 				c.Next()
 				return
@@ -187,7 +192,29 @@ func Require(permission string) gin.HandlerFunc {
 	}
 }
 
-func CurrentUser(c *gin.Context) User { user, _ := c.MustGet(userKey).(User); return user }
+func CurrentUser(c *gin.Context) User { user, _ := currentUser(c); return user }
+func HasRole(c *gin.Context, roles ...string) bool {
+	user, ok := currentUser(c)
+	if !ok {
+		return false
+	}
+	for _, role := range user.Roles {
+		for _, allowed := range roles {
+			if role == allowed {
+				return true
+			}
+		}
+	}
+	return false
+}
+func currentUser(c *gin.Context) (User, bool) {
+	user, ok := c.Get(userKey)
+	if !ok {
+		return User{}, false
+	}
+	value, ok := user.(User)
+	return value, ok && value.ID != ""
+}
 func publicUser(user User) gin.H {
 	return gin.H{"id": user.ID, "name": user.Name, "email": user.Email, "roles": user.Roles, "permissions": user.Permissions}
 }

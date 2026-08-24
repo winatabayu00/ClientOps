@@ -57,10 +57,32 @@ func TestCSRFProtectionRejectsMissingOrMismatchedToken(t *testing.T) {
 func TestRequireRejectsMissingPermission(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	r.GET("/protected", func(c *gin.Context) { c.Set(userKey, User{Permissions: []string{"issue.read"}}) }, Require("issue.close"), func(c *gin.Context) { c.Status(http.StatusNoContent) })
+	r.GET("/protected", func(c *gin.Context) { c.Set(userKey, User{ID: "trusted-user", Permissions: []string{"issue.read"}}) }, Require("issue.close"), func(c *gin.Context) { c.Status(http.StatusNoContent) })
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/protected", nil))
 	if w.Code != http.StatusForbidden {
+		t.Fatalf("got status %d", w.Code)
+	}
+}
+
+func TestRequireRejectsMissingIdentity(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.GET("/protected", Require("issue.read"), func(c *gin.Context) { c.Status(http.StatusNoContent) })
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/protected", nil))
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("got status %d", w.Code)
+	}
+}
+
+func TestRequireAllowsTrustedPermission(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.GET("/protected", func(c *gin.Context) { c.Set(userKey, User{ID: "trusted-user", Permissions: []string{"issue.read"}}) }, Require("issue.read"), func(c *gin.Context) { c.Status(http.StatusNoContent) })
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/protected", nil))
+	if w.Code != http.StatusNoContent {
 		t.Fatalf("got status %d", w.Code)
 	}
 }

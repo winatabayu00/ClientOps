@@ -79,12 +79,7 @@ func (h *Handler) CompleteFollowUp(c *gin.Context) {
 	respond(c, o, e, "Follow-up completed", 200)
 }
 func manager(c *gin.Context) bool {
-	for _, r := range auth.CurrentUser(c).Roles {
-		if r == "SUPER_ADMIN" || r == "OPS_MANAGER" {
-			return true
-		}
-	}
-	return false
+	return auth.HasRole(c, "SUPER_ADMIN", "OPS_MANAGER")
 }
 func followType(s string) bool {
 	for _, v := range []string{"ISSUE_RESOLUTION", "RELEASE_UPDATE", "TRAINING", "RELATIONSHIP_CHECK", "OTHER"} {

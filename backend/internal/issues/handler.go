@@ -259,12 +259,7 @@ func pagination(c *gin.Context) (int, int) {
 	return p, l
 }
 func scoped(c *gin.Context) bool {
-	for _, role := range auth.CurrentUser(c).Roles {
-		if role == "OPS_STAFF" {
-			return true
-		}
-	}
-	return false
+	return auth.HasRole(c, "OPS_STAFF")
 }
 
 var uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$`)

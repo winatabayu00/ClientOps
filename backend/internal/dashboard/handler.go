@@ -19,12 +19,7 @@ var uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-
 func NewHandler(service *Service) *Handler { return &Handler{service: service} }
 
 func opsScoped(c *gin.Context) bool {
-	for _, role := range auth.CurrentUser(c).Roles {
-		if role == "OPS_STAFF" {
-			return true
-		}
-	}
-	return false
+	return auth.HasRole(c, "OPS_STAFF")
 }
 
 func (h *Handler) Overview(c *gin.Context) {
